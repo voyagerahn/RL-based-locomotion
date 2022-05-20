@@ -229,6 +229,12 @@ class Robot:
     return self._foot_contact_history
 
   @property
+  def foot_velocity(self):
+    return np.array([self.compute_foot_velocity(0)[2], self.compute_foot_velocity(
+        1)[2], self.compute_foot_velocity(2)[2], self.compute_foot_velocity(3)[2]])
+
+
+  @property
   def base_rpy_rate(self):
     angular_velocity = self._pybullet_client.getBaseVelocity(self.quadruped)[1]
     orientation = self.base_orientation_quat
@@ -293,7 +299,7 @@ class Robot:
       motor_torques_dict[joint_id] = motor_torques_list[torque_id]
     return motor_torques_dict
   
-  def foot_velocity(self, leg_id):
+  def compute_foot_velocity(self, leg_id):
     motor_wdot = self.motor_velocities[leg_id * 3:(leg_id + 1) * 3]
     jv = self.compute_foot_jacobian(leg_id)
     foot_velocities = np.matmul(jv, motor_wdot)

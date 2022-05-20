@@ -34,10 +34,12 @@ class RolloutServer(object):
       np.random.seed(step * 100 + self.server_id)
     state = self.env.reset()
     sum_reward = 0
+    # sum_impulse = 0
     for _ in range(self.config.rollout_length):
       action = self.policy.act(state)
-      state, rew, done, _ = self.env.step(action)
+      state, rew, impulse , done, _ = self.env.step(action)
       sum_reward += rew
+      # sum_impulse += impulse
       if done:
         break
     return sum_reward

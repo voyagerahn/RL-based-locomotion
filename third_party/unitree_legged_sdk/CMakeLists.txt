@@ -4,6 +4,7 @@ project(unitree_legged_sdk)
 include_directories(include)
 
 link_directories(lib)
+link_directories("/usr/local/lib")
 
 add_compile_options(-std=c++11)
 

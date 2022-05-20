@@ -2,7 +2,6 @@
 from absl import app
 from absl import flags
 from absl import logging
-
 import itertools
 import numpy as np
 from third_party import inputs
@@ -51,7 +50,7 @@ class Gamepad:
       vel_scale_y: maximum absolute y-velocity command.
       vel_scale_rot: maximum absolute yaw-dot command.
     """
-    self.gamepad = inputs.get_gamepad()#inputs.devices.gamepads[0] 
+    self.gamepad = inputs.devices.gamepads[0]#inputs.get_gamepad()
     
     self._vel_scale_x = vel_scale_x
     self._vel_scale_y = vel_scale_y
@@ -77,16 +76,16 @@ class Gamepad:
 
     self.read_thread = threading.Thread(target=self.read_loop)
     self.read_thread.start()
-    print("To confirm that you are using the correct gamepad, press down the "
-          "LEFT joystick to continue...")
-    start_time = time.time()
-    while time.time() - start_time < 5:
-      if self._lj_pressed:
-        return
-      time.sleep(0.01)
-    self.stop()
-    raise RuntimeError("Gamepad response not detected after 5 seconds, "
-                       "terminating...")
+    # print("To confirm that you are using the correct gamepad, press down the "
+    #       "LEFT joystick to continue...")
+    # start_time = time.time()
+    # while time.time() - start_time < 5:
+    #   if self._lj_pressed:
+    #     return
+    #   time.sleep(0.01)
+    # self.stop()
+    # raise RuntimeError("Gamepad response not detected after 5 seconds, "
+    #                    "terminating...")
 
   def read_loop(self):
     """The read loop for events.
@@ -96,7 +95,7 @@ class Gamepad:
     """
     while self.is_running:
       try:
-        events = self.gamepad#self.gamepad.read() 
+        events = self.gamepad.read()#inputs.get_gamepad() #self.gamepad.read()
         for event in events:
           self.update_command(event)
       except inputs.UnknownEventCode:
@@ -114,7 +113,6 @@ class Gamepad:
         self._mode = next(self._mode_generator)
     elif event.ev_type == 'Key' and event.code == 'BTN_THUMBL':
       self._lj_pressed = bool(event.state)
-
     elif event.ev_type == 'Absolute' and event.code == 'ABS_RX':
       # Left Joystick L/R axis
       self.vy_raw = _interpolate(-event.state, MAX_ABS_VAL, self._vel_scale_y)
@@ -135,6 +133,7 @@ class Gamepad:
 
     if self._lb_pressed and self._rb_pressed:
       if not self._estop_flagged:
+        print("6")
         logging.info("EStop Flagged, press LEFT joystick to release.")
       self._estop_flagged = True
       while self._mode != ControllerMode.DOWN:

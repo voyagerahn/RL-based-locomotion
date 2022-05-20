@@ -9,12 +9,13 @@ import gym
 import os
 import pickle
 import time
+from src.robots import robot
 from tqdm import tqdm
 import yaml
 
 flags.DEFINE_string('logdir', '/path/to/log/dir', 'path to log dir.')
 flags.DEFINE_bool('show_gui', False, 'whether to show pybullet GUI.')
-flags.DEFINE_bool('save_video', False, 'whether to save video.')
+flags.DEFINE_bool('save_video', True, 'whether to save video.')
 flags.DEFINE_bool('save_data', True, 'whether to save data.')
 flags.DEFINE_integer('num_rollouts', 1, 'number of rollouts.')
 flags.DEFINE_integer('rollout_length', 0, 'rollout_length, 0 for default.')
@@ -111,9 +112,10 @@ def main(_):
     observations.append(obs)
     actions.append(action)
     rew = 0
+    impulse = 0
     for _ in range(int(env.config.high_level_dt / env.robot.control_timestep)):
-      obs, step_rew, done, _ = env.step(action, single_step=True)
-
+      obs, step_rew, step_impulse, done, _ = env.step(action, single_step=True)
+      impulse += step_impulse
       rew += step_rew
       states.append(
           dict(
@@ -134,11 +136,15 @@ def main(_):
               robot_action=env.robot_action,
               env_action=action,
               gait_generator_phase=env.gait_generator.current_phase.copy(),
-              gait_generator_state=env.gait_generator.leg_state))
+              gait_generator_state=env.gait_generator.leg_state,
+              foot_velocity=env.robot.foot_velocity,
+              impulse=step_impulse
+              ))
       if done:
         break
     totalr += rew
     print("Step: {}, Reward: {}".format(t, rew))
+    # print("impulse: {}".format(impulse))    
     steps += 1
     if done:
       break

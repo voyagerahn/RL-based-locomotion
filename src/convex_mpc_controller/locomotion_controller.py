@@ -204,7 +204,6 @@ class LocomotionController(object):
     """Returns the control ouputs (e.g. positions/torques) for all motors."""
     swing_action = self._swing_controller.get_action()
     stance_action, qp_sol = self._stance_controller.get_action()
-
     actions = []
     for joint_id in range(self._robot.num_motors):
       if joint_id in swing_action:
@@ -250,14 +249,14 @@ class LocomotionController(object):
   def _start_logging(self):
     self._logs = []
 
-  def _update_logging(self, action, qp_sol):
+  def _update_logging(self, action, qp_sol, impulse):
     frame = dict(
         desired_speed=(self._swing_controller.desired_speed,
                        self._swing_controller.desired_twisting_speed),
         timestamp=self._time_since_reset,
         base_rpy=self._robot.base_orientation_rpy,
         motor_angles=self._robot.motor_angles,
-        base_vel=self._robot.motor_velocities,
+        base_vel=self._robot.base_velocity,
         base_vels_body_frame=self._state_estimator.com_velocity_body_frame,
         base_rpy_rate=self._robot.base_rpy_rate,
         motor_vels=self._robot.motor_velocities,
@@ -269,6 +268,8 @@ class LocomotionController(object):
         gait_generator_state=self._gait_generator.leg_state,
         ground_orientation=self._state_estimator.
         ground_orientation_world_frame,
+        foot_velocity=self._robot.foot_velocity,
+        impulse=impulse
     )
     self._logs.append(frame)
 
@@ -303,6 +304,15 @@ class LocomotionController(object):
   def run(self):
     logging.info("Low level thread started...")
     while True:
+      
+      foot_contact = self._robot.foot_contacts
+      ex_foot_vel = np.zeros(4)
+      for leg_id in range(4):
+        if foot_contact[leg_id] == True :
+          ex_foot_vel[leg_id] = self._robot.compute_foot_velocity(leg_id)[2]
+        else:
+          ex_foot_vel[leg_id] = 0
+      
       self._handle_mode_switch()
       self._handle_gait_switch()
       self.update()
@@ -315,7 +325,20 @@ class LocomotionController(object):
       elif self._mode == ControllerMode.WALK:
         action, qp_sol = self.get_action()
         self._robot.step(action)
-        self._update_logging(action, qp_sol)
+        
+        foot_contact = self._robot.foot_contacts
+        foot_vel = np.zeros(4)
+        for leg_id in range(4):
+          if foot_contact[leg_id] == True :
+            foot_vel[leg_id] = self._robot.compute_foot_velocity(leg_id)[2]
+          else:
+            foot_vel[leg_id] = 0
+
+        impulse = foot_vel - ex_foot_vel
+        impulse = np.sum(np.abs(impulse))
+
+        self._update_logging(action, qp_sol, impulse)
+
       else:
         logging.info("Running loop terminated, exiting...")
         break
@@ -364,7 +387,7 @@ class LocomotionController(object):
     self._swing_controller.desired_twisting_speed = desired_rot_speed
     self._stance_controller.desired_speed = desired_lin_speed
     self._stance_controller.desired_twisting_speed = desired_rot_speed
-
+  
   def set_gait_parameters(self, gait_parameters):
     raise NotImplementedError()
 

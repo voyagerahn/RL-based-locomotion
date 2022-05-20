@@ -25,7 +25,7 @@ def get_config():
 
   # CMAES hyperparams
   config.logdir = 'logs'
-  config.num_iters = 10#10000
-  config.rollout_length = 100
+  config.num_iters = 2#10000
+  config.rollout_length = 300
   config.eval_every = 10
   return config

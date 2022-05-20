@@ -198,6 +198,18 @@ class A1Robot(a1.A1):
     return self._foot_positions_in_hip_frame + HIP_OFFSETS
 
   @property
+  def foot_velocity(self):
+    return np.array([self.compute_foot_velocity(0)[2], self.compute_foot_velocity(
+        1)[2], self.compute_foot_velocity(2)[2], self.compute_foot_velocity(3)[2]])
+  
+  @property
+  def impulse(self):
+    foot_vel = np.array([self.compute_foot_velocity(0)[2], self.compute_foot_velocity(
+        1)[2], self.compute_foot_velocity(2)[2], self.compute_foot_velocity(3)[2]])
+    foot_vel =  np.sum(np.abs(foot_vel))
+    return foot_vel
+
+  @property
   def time_since_reset(self):
     return time.time() - self._last_reset_time
 
@@ -285,7 +297,7 @@ class A1Robot(a1.A1):
     theta_ab = np.arctan2(s1, c1)
     return np.array([theta_ab, theta_hip, theta_knee])
 
-  def get_foot_velocity(self, leg_id):
+  def compute_foot_velocity(self, leg_id):
     motor_wdot = self.motor_velocities[leg_id * 3:(leg_id + 1) * 3]
     jv = self.compute_foot_jacobian(leg_id)
     foot_velocities = np.matmul(jv, motor_wdot)

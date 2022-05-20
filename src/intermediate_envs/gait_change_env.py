@@ -169,6 +169,7 @@ class GaitChangeEnv(gym.Env):
       num_steps = int(self.config.high_level_dt / self.robot.control_timestep) #0.05/0.002
 
     sum_reward = 0
+    sum_impulse = 0
     for _ in range(num_steps):
       self._time_since_reset = self._clock() - self._reset_time
       # Update individual controller components
@@ -183,12 +184,10 @@ class GaitChangeEnv(gym.Env):
       
       foot_contact = self.robot.foot_contacts
 
-      ex_foot_velocity = np.array([self.robot.foot_velocity(0)[2], self.robot.foot_velocity(
-        1)[2], self.robot.foot_velocity(2)[2], self.robot.foot_velocity(3)[2]])
-
+      ex_foot_velocity = np.zeros(4)
       for leg_id in range(4):
         if foot_contact[leg_id] == True :
-          ex_foot_velocity[leg_id] = self.robot.foot_velocity(leg_id)[2]
+          ex_foot_velocity[leg_id] = self.robot.compute_foot_velocity(leg_id)[2]
         else:
           ex_foot_velocity[leg_id] = 0
 
@@ -222,14 +221,15 @@ class GaitChangeEnv(gym.Env):
             cameraPitch=-30,
             cameraTargetPosition=self.robot.base_position,
         )
-      # sum_reward += self._reward_fn(action)
-
-      sum_reward += self._reward_fn(action, ex_foot_velocity)
+      reward, impulse = self._reward_fn(action, ex_foot_velocity)
+      sum_impulse += impulse
+      sum_reward += reward
+      # sum_reward += self._reward_fn(action, ex_foot_velocity)
       done = not self.is_safe
       if done:
         logging.info("Unsafe, terminating episode...")
         break
-    return self.get_observation(), sum_reward, done, dict()
+    return self.get_observation(), sum_reward, sum_impulse, done, dict()
   
   def _reward_fn(self, action, ex_foot_velocity):
     # del action # unused
@@ -240,22 +240,18 @@ class GaitChangeEnv(gym.Env):
     else:
       actual_speed = self.robot.base_velocity[0]
 
-    foot_velocity = np.array([self.robot.foot_velocity(0)[2], self.robot.foot_velocity(
-        1)[2], self.robot.foot_velocity(2)[2], self.robot.foot_velocity(3)[2]])
-    
     foot_contact = self.robot.foot_contacts
-
+    # foot_velocity = np.array([self.robot.compute_foot_velocity(0)[2], self.robot.compute_foot_velocity(
+    #     1)[2], self.robot.compute_foot_velocity(2)[2], self.robot.compute_foot_velocity(3)[2]])
+    foot_velocity = np.zeros(4)    
     for leg_id in range(4):
         if foot_contact[leg_id] == True:
-          foot_velocity[leg_id] = self.robot.foot_velocity(leg_id)[2]
+          foot_velocity[leg_id] = self.robot.compute_foot_velocity(leg_id)[2]
         else:
           foot_velocity[leg_id] = 0
 
-    # print("foot_velocity: {}".format(foot_velocity))
-    # print("ex_foot_velocity: {}".format(foot_velocity))
 
     impulse_penalty = (foot_velocity - ex_foot_velocity)
-    # impulse_penalty = (foot_velocity - ex_foot_velocity)**2
     impulse_penalty = np.sum(np.abs(impulse_penalty))
 
     # print("impulse_penalty: {}".format(impulse_penalty))
@@ -290,56 +286,7 @@ class GaitChangeEnv(gym.Env):
     # print("rew: {}".format(rew))
     # print("-------------------------------------------------------------------------")
 
-    return rew
-
-  # def _reward_fn(self, action):
-  #   # del action # unused
-  #   desired_speed = self.get_desired_speed(self._time_since_reset)[0]
-  #   if self.use_real_robot:
-  #     actual_speed = self.robot.base_velocity[0]
-  #   else:
-  #     actual_speed = self.robot.base_velocity[0]
-
-  #   motor_heat = 0.3 * self.robot.motor_torques**2
-  #   motor_mech = self.robot.motor_torques * self.robot.motor_velocities
-
-  #   # Maximize over 0 since the battery can not be charged by the motor yet
-  #   power_penalty = np.maximum(motor_heat + motor_mech, 0)
-  #   power_penalty = np.sum(power_penalty)
-  #   # print("power_penalty: {}".format(power_penalty))
-
-  #   if self.config.get('use_cot', False):
-  #     power_penalty /= np.maximum(desired_speed, 0.3)
-
-  #   action_norm_penalty = np.sum(np.maximum(np.abs(action[1:7]) - 0.5, 0))
-
-  #   alive_bonus = self.config.get('alive_bonus', 3.)
-
-  #   speed_penalty_type = self.config.get('speed_penalty_type',
-  #                                        'symmetric_square')
-  #   if speed_penalty_type == 'symmetric_square':
-  #     speed_penalty = (desired_speed - actual_speed)**2
-  #   elif speed_penalty_type == 'asymmetric_square':
-  #     speed_penalty = np.maximum(desired_speed - actual_speed, 0)**2
-  #   elif speed_penalty_type == 'soft_symmetric_square':
-  #     speed_diff = np.abs(desired_speed - actual_speed)
-  #     speed_penalty = np.maximum(speed_diff - 0.2, 0)**2
-  #   else:
-  #     speed_diff = np.abs(desired_speed - actual_speed) / np.maximum(
-  #         actual_speed, 0.3)
-  #     speed_diff = np.clip(speed_diff, -1, 1)
-  #     speed_penalty = speed_diff**2
-
-  #   # rew = alive_bonus - power_penalty * 0.0025 - np.maximum(
-  #   #     (desired_speed - actual_speed), 0
-  #   # )**2 - action_norm_penalty * self.config.get('action_penalty_weight', 0)
-  #   rew = alive_bonus - \
-  #       power_penalty * self.config.get('power_penalty_weight', 0.0025) - \
-  #       speed_penalty * self.config.get('speed_penalty_weight', 1) - \
-  #       action_norm_penalty * self.config.get('action_penalty_weight', 0)
-  #   # print("rew: {}".format(rew))
-  #   # print("-------------------------------------------------------------------------")
-  #   return rew
+    return rew, impulse_penalty
 
   @property
   def is_safe(self):
