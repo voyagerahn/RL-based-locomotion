@@ -7,3 +7,4 @@ pybullet
 ray
 tensorflow
 tqdm
+stable-baselines3[extra]

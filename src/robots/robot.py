@@ -140,8 +140,12 @@ class Robot:
   def _apply_action(self, action, motor_control_mode=None) -> None:
     torques, observed_torques = self._motor_group.convert_to_torque(
         action, self.motor_angles, self.motor_velocities, motor_control_mode)
-    # import pdb
-    # pdb.set_trace()
+    
+    # if self.time_since_reset > 3.0 :
+    #   torques[0]=0.
+    #   torques[1]=0.
+    #   torques[2]=0.
+
     self._pybullet_client.setJointMotorControlArray(
         bodyIndex=self.quadruped,
         jointIndices=self._motor_joint_ids,
@@ -176,7 +180,6 @@ class Robot:
   @property
   def foot_contacts(self):
     all_contacts = self._pybullet_client.getContactPoints(bodyA=self.quadruped)
-
     contacts = [False, False, False, False]
     for contact in all_contacts:
       # Ignore self contacts
@@ -188,6 +191,21 @@ class Robot:
       except ValueError:
         continue
     return contacts
+
+  @property
+  def foot_forces(self):
+    all_contacts = self._pybullet_client.getContactPoints(bodyA=self.quadruped)
+    contact_force = [0.,0.,0.,0.]
+    for contact in all_contacts:
+      # Ignore self contacts
+      if contact[2] == self.quadruped:
+        continue
+      try:
+        toe_link_index = self._foot_link_ids.index(contact[3])
+        contact_force[toe_link_index] = contact[9]
+      except ValueError:
+        continue
+    return contact_force
 
   @property
   def base_position(self):

@@ -2,7 +2,6 @@
 from ml_collections import ConfigDict
 import numpy as np
 
-from src.agents.cmaes import policies
 from src.intermediate_envs.configs import pronk_deluxe
 from src.intermediate_envs import gait_change_env
 
@@ -17,15 +16,15 @@ def get_config():
                          show_gui=False)
 
   # Policy configs:
-  config.policy_constructor = policies.NNPolicy
-  config.filter = 'NoFilter'  #'MeanStdFilter'
-  config.action_limit_method = 'tanh'  # 'tanh'
-  config.num_hidden_layers = 1
-  config.hidden_layer_size = 256
+  # config.policy_constructor = policies.NNPolicy
+  # config.filter = 'NoFilter'  #'MeanStdFilter'
+  # config.action_limit_method = 'tanh'  # 'tanh'
+  # config.num_hidden_layers = 1
+  # config.hidden_layer_size = 256
 
-  # CMAES hyperparams
+  # PPO hyperparams
   config.logdir = 'logs'
-  config.num_iters = 1000 #1000 #0
+  config.num_iters = 1000 #0
   config.rollout_length = 300
   config.eval_every = 10
   return config

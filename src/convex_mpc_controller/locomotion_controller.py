@@ -13,7 +13,7 @@ import threading
 import time
 from typing import Tuple
 
-from src.convex_mpc_controller import com_velocity_estimator
+from src.convex_mpc_controller import com_velocity_estimator, gait_generator
 from src.convex_mpc_controller import offset_gait_generator
 from src.convex_mpc_controller import raibert_swing_leg_controller
 from src.convex_mpc_controller import torque_stance_leg_controller_mpc
@@ -80,6 +80,16 @@ class LocomotionController(object):
     self._time_since_reset = 0
     self._logs = []
     self._logdir = logdir
+    
+    self._tick = 0
+    self.ex_gait_state = 0
+    self.current_gait_state = 0
+    self.sum_impulse = 0
+    self.sum_base_velocity = 0
+    self.delta = 0
+
+    self._ex_foot_vel = np.zeros(4)
+    self._foot_vel = np.zeros(4)
 
     self._mode = ControllerMode.DOWN
     self.set_controller_mode(ControllerMode.STAND)
@@ -88,6 +98,7 @@ class LocomotionController(object):
     self._handle_gait_switch()
     self.run_thread = threading.Thread(target=self.run)
     self.run_thread.start()
+
 
   def _setup_robot_and_controllers(self):
     # Construct robot
@@ -248,6 +259,7 @@ class LocomotionController(object):
 
   def _start_logging(self):
     self._logs = []
+    self._tick = 0
 
   def _update_logging(self, action, qp_sol, impulse):
     frame = dict(
@@ -257,6 +269,7 @@ class LocomotionController(object):
         base_rpy=self._robot.base_orientation_rpy,
         motor_angles=self._robot.motor_angles,
         base_vel=self._robot.base_velocity,
+        base_vel_x=self._robot.base_velocity[0],
         base_vels_body_frame=self._state_estimator.com_velocity_body_frame,
         base_rpy_rate=self._robot.base_rpy_rate,
         motor_vels=self._robot.motor_velocities,
@@ -266,11 +279,14 @@ class LocomotionController(object):
         robot_action=action,
         gait_generator_phase=self._gait_generator.current_phase.copy(),
         gait_generator_state=self._gait_generator.leg_state,
+        gait_normalized_phase=self._gait_generator.normalized_phase[0],
         ground_orientation=self._state_estimator.
         ground_orientation_world_frame,
         foot_velocity=self._robot.foot_velocity,
-        impulse=impulse
-    )
+        foot_forces=self._robot.foot_forces,
+        impulse=impulse,
+        tick=self._tick
+      )
     self._logs.append(frame)
 
   def _flush_logging(self):
@@ -305,13 +321,7 @@ class LocomotionController(object):
     logging.info("Low level thread started...")
     while True:
       
-      foot_contact = self._robot.foot_contacts
-      ex_foot_vel = np.zeros(4)
-      for leg_id in range(4):
-        if foot_contact[leg_id] == True :
-          ex_foot_vel[leg_id] = self._robot.compute_foot_velocity(leg_id)[2]
-        else:
-          ex_foot_vel[leg_id] = 0
+      self.current_gait_state = self._gait_generator.normalized_phase[0]      
       
       self._handle_mode_switch()
       self._handle_gait_switch()
@@ -325,20 +335,28 @@ class LocomotionController(object):
       elif self._mode == ControllerMode.WALK:
         action, qp_sol = self.get_action()
         self._robot.step(action)
-        
-        foot_contact = self._robot.foot_contacts
-        foot_vel = np.zeros(4)
-        for leg_id in range(4):
-          if foot_contact[leg_id] == True :
-            foot_vel[leg_id] = self._robot.compute_foot_velocity(leg_id)[2]
-          else:
-            foot_vel[leg_id] = 0
+        # print(self._robot.foot_forces)
+        # foot_contact = self._robot.foot_contacts
+        impulse = 0.002 * np.sum(self._robot.foot_forces)
+        if self.ex_gait_state >= self.current_gait_state:
+          # print("{}  {}".format((self.sum_impulse / self.delta), (self.sum_impulse / self.sum_base_velocity)))
+          # print("tick : {}, avg_impulse : {} ".format(self._tick, self.sum_impulse / self.delta))
+          self.sum_impulse = 0
+          self.sum_base_velocity = 0
+          self.delta = 0
 
-        impulse = foot_vel - ex_foot_vel
-        impulse = np.sum(np.abs(impulse))
+        self.sum_base_velocity += np.abs(self._robot.base_velocity[0])
+        self.sum_impulse += impulse
+
+        # actual_time = time.time() - start_time
+        # print("{:.5f}".format(actual_time))
 
         self._update_logging(action, qp_sol, impulse)
-
+        
+        self.delta += 1
+        self._tick += 1
+        self.ex_gait_state = self.current_gait_state
+        
       else:
         logging.info("Running loop terminated, exiting...")
         break
@@ -351,7 +369,7 @@ class LocomotionController(object):
             cameraPitch=-30,
             cameraTargetPosition=self._robot.base_position,
         )
-
+  
   def set_controller_mode(self, mode):
     self._desired_mode = mode
 
@@ -405,3 +423,104 @@ class LocomotionController(object):
 
   def set_foot_landing_clearance(self, foot_landing_clearance):
     raise NotImplementedError()
+
+
+
+  # def _update_logging(self, action, qp_sol, impulse):
+  #   frame = dict(
+  #       desired_speed=(self._swing_controller.desired_speed,
+  #                      self._swing_controller.desired_twisting_speed),
+  #       timestamp=self._time_since_reset,
+  #       base_rpy=self._robot.base_orientation_rpy,
+  #       motor_angles=self._robot.motor_angles,
+  #       base_vel=self._robot.base_velocity,
+  #       base_vel_x=self._robot.base_velocity[0],
+  #       base_vels_body_frame=self._state_estimator.com_velocity_body_frame,
+  #       base_rpy_rate=self._robot.base_rpy_rate,
+  #       motor_vels=self._robot.motor_velocities,
+  #       motor_torques=self._robot.motor_torques,
+  #       contacts=self._robot.foot_contacts,
+  #       desired_grf=qp_sol,
+  #       robot_action=action,
+  #       gait_generator_phase=self._gait_generator.current_phase.copy(),
+  #       gait_generator_state=self._gait_generator.leg_state,
+  #       gait_normalized_phase=self._gait_generator.normalized_phase[0],
+  #       ground_orientation=self._state_estimator.
+  #       ground_orientation_world_frame,
+  #       foot_velocity=self._robot.foot_velocity,
+  #       tick=self._tick,
+  #       impulse=impulse,
+  #     )
+  #   self._logs.append(frame)
+
+  # def run(self):
+  #   logging.info("Low level thread started...")
+  #   while True:
+      
+  #     # self.current_gait_state = self._gait_generator.normalized_phase[0]      
+      
+  #     # foot_contact = self._robot.foot_contacts
+  #     # ex_foot_vel = np.zeros(4)
+  #     # for leg_id in range(4):
+  #     #   if foot_contact[leg_id] == True :
+  #     #     ex_foot_vel[leg_id] = self._robot.compute_foot_velocity(leg_id)[2]
+  #     #   else:
+  #     #     ex_foot_vel[leg_id] = 0
+  #     # start_time = time.time()
+
+  #     self._handle_mode_switch()
+  #     self._handle_gait_switch()
+  #     self.update()
+  #     if self._mode == ControllerMode.DOWN:
+  #       time.sleep(0.1)
+  #     elif self._mode == ControllerMode.STAND:
+  #       action = self._get_stand_action()
+  #       self._robot.step(action)
+  #       time.sleep(0.001)
+  #     elif self._mode == ControllerMode.WALK:
+  #       action, qp_sol = self.get_action()
+  #       self._robot.step(action)
+  #       # print(self._robot.foot_forces)
+  #       # foot_contact = self._robot.foot_contacts
+  #       # foot_vel = np.zeros(4)
+  #       # for leg_id in range(4):
+  #       #   if foot_contact[leg_id] == True :
+  #       #     foot_vel[leg_id] = self._robot.compute_foot_velocity(leg_id)[2]
+  #       #   else:
+  #       #     foot_vel[leg_id] = 0
+  #       impulse = 0.002 * np.sum(self._robot.foot_forces)
+  #       print(impulse)
+  #       # impulse = foot_vel - ex_foot_vel
+  #       # impulse = np.sum(np.abs(impulse))
+        
+  #       # if self.ex_gait_state >= self.current_gait_state:
+  #       #   print("{}  {}".format((self.sum_impulse / self.delta), (self.sum_impulse / self.sum_base_velocity)))
+  #       #   # print("tick : {}, avg_impulse : {} ".format(self._tick, self.sum_impulse / self.delta))
+  #       #   self.sum_impulse = 0
+  #       #   self.sum_base_velocity = 0
+  #       #   self.delta = 0
+
+  #       # self.sum_base_velocity += np.abs(self._robot.base_velocity[0])
+  #       # self.sum_impulse += impulse
+
+  #       # actual_time = time.time() - start_time
+  #       # print("{:.5f}".format(actual_time))
+
+  #       self._update_logging(action, qp_sol, impulse)
+        
+  #       # self.delta += 1
+  #       # self._tick += 1
+  #       # self.ex_gait_state = self.current_gait_state
+        
+  #     else:
+  #       logging.info("Running loop terminated, exiting...")
+  #       break
+
+  #     # Camera setup:
+  #     if self._show_gui:
+  #       self.pybullet_client.resetDebugVisualizerCamera(
+  #           cameraDistance=1.0,
+  #           cameraYaw=30 + self._robot.base_orientation_rpy[2] / np.pi * 180,
+  #           cameraPitch=-30,
+  #           cameraTargetPosition=self._robot.base_position,
+  #       )

@@ -1,5 +1,6 @@
 """Code to evaluate a learned ARS policy.
 """
+from enum import Flag
 from absl import app
 from absl import flags
 from absl import logging
@@ -12,6 +13,8 @@ import time
 from src.robots import robot
 from tqdm import tqdm
 import yaml
+from stable_baselines3 import PPO
+from stable_baselines3.common.env_util import make_vec_env
 
 flags.DEFINE_string('logdir', '/path/to/log/dir', 'path to log dir.')
 flags.DEFINE_bool('show_gui', False, 'whether to show pybullet GUI.')
@@ -24,34 +27,13 @@ flags.DEFINE_bool('use_gamepad', False,
                   'whether to use gamepad for speed command.')
 FLAGS = flags.FLAGS
 
-
-def get_latest_policy_path(logdir):
-  files = [
-      entry for entry in os.listdir(logdir)
-      if os.path.isfile(os.path.join(logdir, entry))
-  ]
-  files.sort(key=lambda entry: os.path.getmtime(os.path.join(logdir, entry)))
-  files = files[::-1]
-
-  idx = 0
-  for entry in files:
-    if entry.startswith('lin_policy_plus'):
-      return os.path.join(logdir, entry)
-  raise ValueError('No Valid Policy Found.')
-
-
 def main(_):
-  # Load config and policy
-  if FLAGS.logdir.endswith('npz'):
-    config_path = os.path.join(os.path.dirname(FLAGS.logdir), 'config.yaml')
-    policy_path = FLAGS.logdir
-    log_path = os.path.dirname(FLAGS.logdir)
-  else:
-    # Find the latest policy ckpt
-    config_path = os.path.join(FLAGS.logdir, 'config.yaml')
-    policy_path = get_latest_policy_path(FLAGS.logdir)
-    log_path = FLAGS.logdir
 
+  # Load config and policy
+  config_path = os.path.join(os.path.dirname(FLAGS.logdir),'good', 'config.yaml')
+  model_path = os.path.join(FLAGS.logdir,'ppo_policy')
+  log_path = FLAGS.logdir
+  
   if FLAGS.save_video or FLAGS.save_data:
     log_path = os.path.join(log_path,
                             datetime.now().strftime('%Y_%m_%d_%H_%M_%S'))
@@ -60,6 +42,7 @@ def main(_):
   with open(config_path, 'r') as f:
     config = yaml.load(f, Loader=yaml.Loader)
 
+  # Set config
   with config.unlocked():
     config.env_args.show_gui = FLAGS.show_gui
     config.env_args.use_real_robot = FLAGS.use_real_robot
@@ -68,26 +51,6 @@ def main(_):
   if FLAGS.rollout_length:
     config.rollout_length = FLAGS.rollout_length
   env = config.env_constructor(**config.env_args)
-
-  # Load Policy
-  lin_policy = dict(np.load(policy_path, allow_pickle=True))
-  lin_policy = list(lin_policy.items())[0][1]
-  M = lin_policy[0]
-  # mean and std of state vectors estimated online by ARS.
-  mean = lin_policy[1]
-  std = lin_policy[2]
-
-  policy_params = {
-      'ob_filter': config.filter,
-      'ob_dim': env.observation_space.low.shape[0],
-      'ac_dim': env.action_space.low.shape[0]
-  }
-  policy = config.policy_constructor(config, policy_params,
-                                     env.observation_space, env.action_space)
-  policy.update_weights(M)
-  if config.filter != 'NoFilter':
-    policy.observation_filter.mean = mean
-    policy.observation_filter.std = std
 
   returns = []
   observations = []
@@ -100,46 +63,27 @@ def main(_):
   done = False
   totalr = 0.
   steps = 0
+  model = PPO.load(model_path)
 
-  current_gait_state = 0.
-  ex_gait_state = 0.
-  sum_impulse = 0
-  delta = 0
-  sum_base_velocity = 0.
-  
-  p = env.pybullet_client
-  if FLAGS.save_video:
-    video_dir = os.path.join(log_path, 'video.mp4')
-    log_id = p.startStateLogging(p.STATE_LOGGING_VIDEO_MP4, video_dir)
+  # p = env.pybullet_client
+  # if FLAGS.save_video:
+  #   video_dir = os.path.join(log_path, 'video.mp4')
+  #   log_id = p.startStateLogging(p.STATE_LOGGING_VIDEO_MP4, video_dir)
+ 
   states = []
   for t in range(config.rollout_length):
     start_time = time.time()
-    action = policy.act(obs)
-
+    action, _ = model.predict(obs)
     observations.append(obs)
     actions.append(action)
     rew = 0
-    impulse = 0
+
     for _ in range(int(env.config.high_level_dt / env.robot.control_timestep)):
       
-      # start_time = time.time()
-      current_gait_state = env.gait_generator.normalized_phase[0]
-
+      start_time = time.time()
       # obs, step_rew, step_impulse, done, _ = env.step(action, single_step=True)
       obs, step_rew, done, _ = env.step(action, single_step=True)
       
-      # actual_time = time.time() - start_time
-      # print("{:.5f}".format(actual_time))
-      # print("----------------------------------------------------------------")
-      # impulse += step_impulse
-      if ex_gait_state > current_gait_state:
-          print("{}  {}".format((sum_impulse / delta), (sum_impulse / sum_base_velocity)))
-          sum_impulse = 0
-          sum_base_velocity = 0
-          delta = 0
-      
-      sum_base_velocity += np.abs(env.robot.base_velocity[0])
-      # sum_impulse += step_impulse
       rew += step_rew
       states.append(
           dict(
@@ -164,19 +108,15 @@ def main(_):
               gait_generator_state=env.gait_generator.leg_state,
               gait_normalized_phase=env.gait_generator.normalized_phase[0],
               foot_velocity=env.robot.foot_velocity,
-              tick=tick,
-              # impulse=step_impulse,
-              foot_forces=env.robot.foot_forces
+              tick=tick
+              # impulse=step_impulse
               ))
-      delta +=1
+      # delta +=1
       tick += 1
-      ex_gait_state = current_gait_state
 
       if done:
         break
     totalr += rew
-    # print("Step: {}, Reward: {}".format(t,rew))
-    # print("impulse: {}".format(impulse))    
     steps += 1
     if done:
       break
@@ -184,9 +124,6 @@ def main(_):
     duration = time.time() - start_time
     if duration < env.robot.control_timestep and not FLAGS.use_real_robot:
       time.sleep(env.robot.control_timestep - duration)
-
-  if FLAGS.save_video:
-    p.stopStateLogging(log_id)
 
   if FLAGS.save_data:
     pickle.dump(states, open(os.path.join(log_path, 'states_0.pkl'), 'wb'))

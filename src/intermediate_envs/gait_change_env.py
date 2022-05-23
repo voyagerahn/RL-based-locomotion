@@ -8,7 +8,7 @@ import scipy
 import pybullet
 from pybullet_utils import bullet_client
 from typing import Tuple
-
+import time
 from src.robots.motors import MotorControlMode
 from src.robots import a1
 from src.robots import a1_robot
@@ -19,10 +19,10 @@ from src.convex_mpc_controller import raibert_swing_leg_controller as swing_cont
 from src.convex_mpc_controller import torque_stance_leg_controller_mpc as stance_controller_mpc
 from src.convex_mpc_controller import offset_gait_generator
 
-
 def get_gamepad_desired_speed_fn(gamepad):
   def get_desired_speed(time_since_reset):
     lin_speed, rot_speed, _ = gamepad.get_command(time_since_reset)
+
     return np.array([lin_speed[0], lin_speed[1], 0, rot_speed])
 
   return get_desired_speed
@@ -42,6 +42,7 @@ def _get_sim_conf():
 
 class GaitChangeEnv(gym.Env):
   """A gym wrapper over the low level leg controller."""
+
   def __init__(self,
                config,
                use_real_robot=False,
@@ -56,7 +57,6 @@ class GaitChangeEnv(gym.Env):
     x, y = self.config.speed_profile
     self.get_desired_speed = scipy.interpolate.interp1d(
         x, y, kind="linear", fill_value="extrapolate", axis=0)
-
     # Construct robot
     if show_gui and not use_real_robot:
       p = bullet_client.BulletClient(connection_mode=pybullet.GUI)
@@ -88,13 +88,16 @@ class GaitChangeEnv(gym.Env):
     self._clock = lambda: self.robot.time_since_reset
     self._gait_generator = offset_gait_generator.OffsetGaitGenerator(
         self.robot, config.init_phase)
+
     window_size = 60
+
     self._state_estimator = com_velocity_estimator.COMVelocityEstimator(
         self.robot,
         velocity_window_size=window_size,
         ground_normal_window_size=10)
 
-    friction_coef = self.config.get("mpc_foot_friction", 0.2)
+    friction_coef = 0.4
+    # friction_coef = self.config.get("mpc_foot_friction", 0.2)
     self._stance_controller = stance_controller_mpc.TorqueStanceLegController(
         self.robot,
         self._gait_generator,
@@ -136,7 +139,8 @@ class GaitChangeEnv(gym.Env):
     self.ground_id = p.loadURDF(
         self.config.get('terrain_urdf_name', 'plane.urdf'))
     self.pybullet_client.changeDynamics(self.ground_id, -1, restitution=1)
-    self.pybullet_client.changeDynamics(self.ground_id, -1, lateralFriction=0.5)
+    self.pybullet_client.changeDynamics(
+        self.ground_id, -1, lateralFriction=0.5)
 
     self.robot.reset(hard_reset=True)
     if self.show_gui and not self.use_real_robot:
@@ -166,12 +170,13 @@ class GaitChangeEnv(gym.Env):
     if single_step:
       num_steps = 1
     else:
-      num_steps = int(self.config.high_level_dt / self.robot.control_timestep) #0.05/0.002
+      num_steps = int(self.config.high_level_dt /
+                      self.robot.control_timestep)  # 0.05/0.002 = 25
 
     sum_reward = 0
-    sum_impulse = 0
     for _ in range(num_steps):
       self._time_since_reset = self._clock() - self._reset_time
+      # start_time = time.time()
       # Update individual controller components
       desired_speed = self.get_desired_speed(self._time_since_reset)
       # Perform "Position" control over yaw direction.
@@ -179,18 +184,6 @@ class GaitChangeEnv(gym.Env):
       # desired_speed[3] = desired_yaw_rate
 
       lin_speed, ang_speed = desired_speed[:3], desired_speed[3:]
-      
-      # print(self.robot.foot_contacts)
-      
-      foot_contact = self.robot.foot_contacts
-
-      ex_foot_velocity = np.zeros(4)
-      for leg_id in range(4):
-        if foot_contact[leg_id] == True :
-          ex_foot_velocity[leg_id] = self.robot.compute_foot_velocity(leg_id)[2]
-        else:
-          ex_foot_velocity[leg_id] = 0
-
       self.update_desired_speed(lin_speed, ang_speed)
       gait_params = np.concatenate((
           action[0:1],
@@ -205,7 +198,6 @@ class GaitChangeEnv(gym.Env):
           stance_controller_mpc.PLANNING_HORIZON_STEPS,
           stance_controller_mpc.PLANNING_TIMESTEP,
       )
-
       self._swing_controller.update(self._time_since_reset)
       self._stance_controller.update(self._time_since_reset,
                                      future_contact_estimate=future_contacts)
@@ -213,7 +205,9 @@ class GaitChangeEnv(gym.Env):
       # Get robot action and step the robot
       self.robot_action, self.qp_sol = self.get_robot_action()
       self.robot.step(self.robot_action)
-
+      # impulse = self.robot.control_timestep * np.sum(self.robot.foot_forces)
+      # actual_time = time.time() - start_time
+      # print("{:.5f}".format(actual_time))
       if self.show_gui:
         self.pybullet_client.resetDebugVisualizerCamera(
             cameraDistance=1.0,
@@ -221,17 +215,19 @@ class GaitChangeEnv(gym.Env):
             cameraPitch=-30,
             cameraTargetPosition=self.robot.base_position,
         )
-      reward, impulse = self._reward_fn(action, ex_foot_velocity)
-      sum_impulse += impulse
+      reward = self._reward_fn(action)
+      # reward = self._reward_fn(action, impulse)
       sum_reward += reward
-      # sum_reward += self._reward_fn(action, ex_foot_velocity)
       done = not self.is_safe
+      # done = False
+
       if done:
         logging.info("Unsafe, terminating episode...")
         break
-    return self.get_observation(), sum_reward, sum_impulse, done, dict()
-  
-  def _reward_fn(self, action, ex_foot_velocity):
+    return self.get_observation(), sum_reward, done, dict()
+
+
+  def _reward_fn(self, action):
     # del action # unused
     desired_speed = self.get_desired_speed(self._time_since_reset)[0]
     
@@ -240,25 +236,15 @@ class GaitChangeEnv(gym.Env):
     else:
       actual_speed = self.robot.base_velocity[0]
 
-    foot_contact = self.robot.foot_contacts
-    # foot_velocity = np.array([self.robot.compute_foot_velocity(0)[2], self.robot.compute_foot_velocity(
-    #     1)[2], self.robot.compute_foot_velocity(2)[2], self.robot.compute_foot_velocity(3)[2]])
-    foot_velocity = np.zeros(4)    
-    for leg_id in range(4):
-        if foot_contact[leg_id] == True:
-          foot_velocity[leg_id] = self.robot.compute_foot_velocity(leg_id)[2]
-        else:
-          foot_velocity[leg_id] = 0
+    # impulse_penalty = impulse
+    actual_roll = self.robot.base_orientation_rpy[0]
+    actual_pitch = self.robot.base_orientation_rpy[1]
 
+    orientation_penalty = (actual_roll**2 + actual_pitch**2)
 
-    impulse_penalty = (foot_velocity - ex_foot_velocity)
-    impulse_penalty = np.sum(np.abs(impulse_penalty))
+    # action_norm_penalty = np.sum(np.maximum(np.abs(action[1:7]) - 0.5, 0))
 
-    # print("impulse_penalty: {}".format(impulse_penalty))
-
-    action_norm_penalty = np.sum(np.maximum(np.abs(action[1:7]) - 0.5, 0))
-
-    alive_bonus = self.config.get('alive_bonus', 3.)
+    alive_bonus = self.config.get('alive_bonus', 5.)
 
     speed_penalty_type = self.config.get('speed_penalty_type',
                                          'symmetric_square')
@@ -275,18 +261,60 @@ class GaitChangeEnv(gym.Env):
       speed_diff = np.clip(speed_diff, -1, 1)
       speed_penalty = speed_diff**2
 
-    # rew = alive_bonus - power_penalty * 0.0025 - np.maximum(
-    #     (desired_speed - actual_speed), 0
-    # )**2 - action_norm_penalty * self.config.get('action_penalty_weight', 0)
     rew = alive_bonus - \
-        impulse_penalty * self.config.get('impulse_penalty_weight', 0.37) - \
-        speed_penalty * self.config.get('speed_penalty_weight', 1) - \
-        action_norm_penalty * self.config.get('action_penalty_weight', 0)
+        orientation_penalty * self.config.get('orientation_penalty_weight', 10) - \
+        speed_penalty * self.config.get('speed_penalty_weight', 1)
+        # impulse_penalty * self.config.get('impulse_penalty_weight', 1)
+        # action_norm_penalty * self.config.get('action_penalty_weight', 0)
     
     # print("rew: {}".format(rew))
     # print("-------------------------------------------------------------------------")
 
-    return rew, impulse_penalty
+    return rew
+  # def _reward_fn(self, action, impulse):
+  #   # del action # unused
+  #   desired_speed = self.get_desired_speed(self._time_since_reset)[0]
+    
+  #   if self.use_real_robot:
+  #     actual_speed = self.robot.base_velocity[0]
+  #   else:
+  #     actual_speed = self.robot.base_velocity[0]
+
+  #   impulse_penalty = impulse
+  #   actual_roll = self.robot.base_orientation_rpy[0]
+  #   actual_pitch = self.robot.base_orientation_rpy[1]
+
+  #   orientation_penalty = (actual_roll**2 + actual_pitch**2)
+
+  #   # action_norm_penalty = np.sum(np.maximum(np.abs(action[1:7]) - 0.5, 0))
+
+  #   alive_bonus = self.config.get('alive_bonus', 5.)
+
+  #   speed_penalty_type = self.config.get('speed_penalty_type',
+  #                                        'symmetric_square')
+  #   if speed_penalty_type == 'symmetric_square':
+  #     speed_penalty = (desired_speed - actual_speed)**2
+  #   elif speed_penalty_type == 'asymmetric_square':
+  #     speed_penalty = np.maximum(desired_speed - actual_speed, 0)**2
+  #   elif speed_penalty_type == 'soft_symmetric_square':
+  #     speed_diff = np.abs(desired_speed - actual_speed)
+  #     speed_penalty = np.maximum(speed_diff - 0.2, 0)**2
+  #   else:
+  #     speed_diff = np.abs(desired_speed - actual_speed) / np.maximum(
+  #         actual_speed, 0.3)
+  #     speed_diff = np.clip(speed_diff, -1, 1)
+  #     speed_penalty = speed_diff**2
+
+  #   rew = alive_bonus - \
+  #       orientation_penalty * self.config.get('orientation_penalty_weight', 10) - \
+  #       speed_penalty * self.config.get('speed_penalty_weight', 1) - \
+  #       impulse_penalty * self.config.get('impulse_penalty_weight', 1)
+  #       # action_norm_penalty * self.config.get('action_penalty_weight', 0)
+    
+  #   # print("rew: {}".format(rew))
+  #   # print("-------------------------------------------------------------------------")
+
+  #   return rew
 
   @property
   def is_safe(self):
@@ -300,7 +328,7 @@ class GaitChangeEnv(gym.Env):
       return (up_vec > 0.85 and base_height > 0.18
               and (not self.gamepad.estop_flagged))
     else:
-      return up_vec > 0.85 and base_height > 0.18
+      return base_height > 0.13 #0.18
 
   def get_robot_action(self):
     swing_action = self._swing_controller.get_action()
@@ -347,7 +375,6 @@ class GaitChangeEnv(gym.Env):
     robot_rpy_rate = self.robot.base_rpy_rate  # 3
     foot_position = self.robot.foot_positions_in_base_frame.flatten()  # 12
     desired_velocity = self.get_desired_speed(self._time_since_reset)
-
     if self.config.use_full_observation:
       return np.concatenate(
           (
@@ -377,3 +404,129 @@ class GaitChangeEnv(gym.Env):
   @property
   def state_estimator(self):
     return self._state_estimator
+
+
+
+  # def step(self, action, single_step=False):
+  #   if single_step:
+  #     num_steps = 1
+  #   else:
+  #     num_steps = int(self.config.high_level_dt /
+  #                     self.robot.control_timestep)  # 0.05/0.002
+
+  #   sum_reward = 0
+  #   sum_impulse = 0
+  #   for _ in range(num_steps):
+  #     self._time_since_reset = self._clock() - self._reset_time
+  #     # Update individual controller components
+  #     desired_speed = self.get_desired_speed(self._time_since_reset)
+  #     # Perform "Position" control over yaw direction.
+  #     # desired_yaw_rate = -self.robot.base_orientation_rpy[2]
+  #     # desired_speed[3] = desired_yaw_rate
+
+  #     lin_speed, ang_speed = desired_speed[:3], desired_speed[3:]
+
+  #     foot_contact = self.robot.foot_contacts
+
+  #     ex_foot_velocity = np.zeros(4)
+  #     for leg_id in range(4):
+  #       if foot_contact[leg_id] == True :
+  #         ex_foot_velocity[leg_id] = self.robot.compute_foot_velocity(leg_id)[2]
+  #       else:
+  #         ex_foot_velocity[leg_id] = 0
+
+  #     self.update_desired_speed(lin_speed, ang_speed)
+  #     gait_params = np.concatenate((
+  #         action[0:1],
+  #         np.arctan2(action[1:4], action[4:7]),
+  #         action[7:],
+  #     ))
+  #     self._gait_generator.gait_params = gait_params
+  #     self._gait_generator.update()
+  #     self._state_estimator.update(self._gait_generator.desired_leg_state)
+
+  #     future_contacts = self._gait_generator.get_estimated_contact_states(
+  #         stance_controller_mpc.PLANNING_HORIZON_STEPS,
+  #         stance_controller_mpc.PLANNING_TIMESTEP,
+  #     )
+
+  #     self._swing_controller.update(self._time_since_reset)
+  #     self._stance_controller.update(self._time_since_reset,
+  #                                    future_contact_estimate=future_contacts)
+
+  #     # Get robot action and step the robot
+  #     self.robot_action, self.qp_sol = self.get_robot_action()
+  #     self.robot.step(self.robot_action)
+
+  #     if self.show_gui:
+  #       self.pybullet_client.resetDebugVisualizerCamera(
+  #           cameraDistance=1.0,
+  #           cameraYaw=30 + self.robot.base_orientation_rpy[2] / np.pi * 180,
+  #           cameraPitch=-30,
+  #           cameraTargetPosition=self.robot.base_position,
+  #       )
+  #     # reward = self._reward_fn(action)
+  #     reward, impulse = self._reward_fn(action, ex_foot_velocity)
+  #     sum_impulse += impulse
+  #     sum_reward += reward
+  #     done = not self.is_safe
+  #     if done:
+  #       logging.info("Unsafe, terminating episode...")
+  #       break
+  #   return self.get_observation(), sum_reward, sum_impulse, done, dict()
+
+  # def _reward_fn(self, action, ex_foot_velocity):
+  #   # del action # unused
+  #   desired_speed = self.get_desired_speed(self._time_since_reset)[0]
+    
+  #   if self.use_real_robot:
+  #     actual_speed = self.robot.base_velocity[0]
+  #   else:
+  #     actual_speed = self.robot.base_velocity[0]
+
+  #   foot_contact = self.robot.foot_contacts
+   
+  #   foot_velocity = np.zeros(4)    
+  #   for leg_id in range(4):
+  #       if foot_contact[leg_id] == True:
+  #         foot_velocity[leg_id] = self.robot.compute_foot_velocity(leg_id)[2]
+  #       else:
+  #         foot_velocity[leg_id] = 0
+
+
+  #   impulse_penalty = (foot_velocity - ex_foot_velocity)
+  #   impulse_penalty = np.sum(np.abs(impulse_penalty))
+
+  #   # print("impulse_penalty: {}".format(impulse_penalty))
+
+  #   action_norm_penalty = np.sum(np.maximum(np.abs(action[1:7]) - 0.5, 0))
+
+  #   alive_bonus = self.config.get('alive_bonus', 3.)
+
+  #   speed_penalty_type = self.config.get('speed_penalty_type',
+  #                                        'symmetric_square')
+  #   if speed_penalty_type == 'symmetric_square':
+  #     speed_penalty = (desired_speed - actual_speed)**2
+  #   elif speed_penalty_type == 'asymmetric_square':
+  #     speed_penalty = np.maximum(desired_speed - actual_speed, 0)**2
+  #   elif speed_penalty_type == 'soft_symmetric_square':
+  #     speed_diff = np.abs(desired_speed - actual_speed)
+  #     speed_penalty = np.maximum(speed_diff - 0.2, 0)**2
+  #   else:
+  #     speed_diff = np.abs(desired_speed - actual_speed) / np.maximum(
+  #         actual_speed, 0.3)
+  #     speed_diff = np.clip(speed_diff, -1, 1)
+  #     speed_penalty = speed_diff**2
+
+  #   # rew = alive_bonus - power_penalty * 0.0025 - np.maximum(
+  #   #     (desired_speed - actual_speed), 0
+  #   # )**2 - action_norm_penalty * self.config.get('action_penalty_weight', 0)
+  #   rew = alive_bonus - \
+  #       impulse_penalty * self.config.get('impulse_penalty_weight', 0.37) - \
+  #       speed_penalty * self.config.get('speed_penalty_weight', 1) - \
+  #       action_norm_penalty * self.config.get('action_penalty_weight', 0)
+    
+  #   # print("rew: {}".format(rew))
+  #   # print("-------------------------------------------------------------------------")
+
+  #   return rew, impulse_penalty

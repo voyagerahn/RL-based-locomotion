@@ -48,7 +48,7 @@ def main(_):
   writer = tf.summary.create_file_writer(config.logdir)
   writer.set_as_default()
 
-  dim_weights = _get_policy_dimension(config)
+  dim_weights = _get_policy_dimension(config) #3336 obs: 4 action: 8
   x0, sigma0 = np.zeros(dim_weights), config.get('initial_sigma', .03)
   popsize = 32
   es = cma.CMAEvolutionStrategy(x0, sigma0,

@@ -50,7 +50,7 @@ class Gamepad:
       vel_scale_y: maximum absolute y-velocity command.
       vel_scale_rot: maximum absolute yaw-dot command.
     """
-    self.gamepad = inputs.devices.gamepads[0]#inputs.get_gamepad()
+    self.gamepad = inputs.devices.gamepads[0]
     
     self._vel_scale_x = vel_scale_x
     self._vel_scale_y = vel_scale_y
@@ -95,7 +95,7 @@ class Gamepad:
     """
     while self.is_running:
       try:
-        events = self.gamepad.read()#inputs.get_gamepad() #self.gamepad.read()
+        events = self.gamepad.read()
         for event in events:
           self.update_command(event)
       except inputs.UnknownEventCode:
@@ -133,7 +133,6 @@ class Gamepad:
 
     if self._lb_pressed and self._rb_pressed:
       if not self._estop_flagged:
-        print("6")
         logging.info("EStop Flagged, press LEFT joystick to release.")
       self._estop_flagged = True
       while self._mode != ControllerMode.DOWN:
@@ -146,10 +145,13 @@ class Gamepad:
     max_delta_speed = self._max_acc * delta_time
     self.vx = np.clip(self.vx_raw, self.vx - max_delta_speed,
                       self.vx + max_delta_speed)
-    self.vy = np.clip(self.vy_raw, self.vy - max_delta_speed,
-                      self.vy + max_delta_speed)
-    self.wz = np.clip(self.wz_raw, self.wz - max_delta_speed,
-                      self.wz + max_delta_speed)
+    self.vy = 0.0
+    self.wz = 0.0
+
+    # self.vy = np.clip(self.vy_raw, self.vy - max_delta_speed,
+    #                   self.vy + max_delta_speed)
+    # self.wz = np.clip(self.wz_raw, self.wz - max_delta_speed,
+    #                   self.wz + max_delta_speed)
 
     self.last_timestamp = time.time()
     return (self.vx, self.vy, 0), self.wz

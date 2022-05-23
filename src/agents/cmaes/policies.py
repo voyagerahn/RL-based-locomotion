@@ -102,8 +102,9 @@ class NNPolicy(Policy):
   def act(self, ob, verbose=False):
     ob = self.observation_filter(ob, update=self.update_filter)
     splitted_weights = self._split_weights(self.weights)
-
+    
     curr = ob.copy()
+
     for _ in range(self.config.get('num_hidden_layers', 0)):
       # Hidden layers of NN
       weight, bias = splitted_weights[0], splitted_weights[1]
@@ -111,11 +112,12 @@ class NNPolicy(Policy):
       curr = relu(weight.dot(curr) + bias)
     # Output layers of NN
     weight, bias = splitted_weights[0], splitted_weights[1]
-    action = weight.dot(curr) + bias
 
+    action = weight.dot(curr) + bias
     if self.action_space:
       if self.config.action_limit_method == 'tanh':
         action = np.tanh(action)
+
       elif self.config.action_limit_method == 'clip':
         action = np.clip(action, -1, 1)
       else:
