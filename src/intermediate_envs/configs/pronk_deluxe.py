@@ -34,7 +34,7 @@ def get_config():
   config.alive_bonus = 10
   config.use_cot = True
   config.speed_penalty_weight = 1.
-  config.ground_impact_penalty_weight = 1 #0.37 #0.0025
+  config.ground_impact_penalty_weight = 0.8 #0.37 #0.0025
   config.orientation_penalty_weight = 10 
   config.speed_penalty_type = 'relative'
 

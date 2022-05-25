@@ -180,7 +180,7 @@ class Robot:
       self._apply_action(action, motor_control_mode)
       self._pybullet_client.stepSimulation()
       self._update_contact_history()
-
+  
   @property
   def foot_contacts(self):
     all_contacts = self._pybullet_client.getContactPoints(bodyA=self.quadruped)
@@ -195,9 +195,10 @@ class Robot:
       except ValueError:
         continue
     return contacts
-
+  
   @property
   def foot_contacts_binary(self):
+    """Return Binary"""
     all_contacts = self._pybullet_client.getContactPoints(bodyA=self.quadruped)
     contacts = [0, 0, 0, 0]
     for contact in all_contacts:
@@ -209,7 +210,7 @@ class Robot:
         contacts[toe_link_index] = 1
       except ValueError:
         continue
-    return contacts
+    return contacts  #return Binary
 
   @property
   def pre_foot_contacts_binary(self):
@@ -217,13 +218,15 @@ class Robot:
 
   @property
   def foot_contacts_threshold(self):
-    # for foot in range(4):
-    #   if self.foot_forces[foot] > 10.0 :
-    #     contact[foot] = 1
-    #   else
-    #     co      
-    return np.array(self.foot_forces) > 10.0
-
+    """
+    Detect contact through a threshold
+    Return Binary 1: Contact 
+    """
+    contacts = [0, 0, 0, 0]
+    for foot in range(4):
+      if self.foot_forces[foot] > 10.0:
+        contacts[foot] = 1
+    return contacts
   @property
   def pre_foot_contacts_threshold(self):
     return self._pre_foot_contact

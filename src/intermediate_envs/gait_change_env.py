@@ -240,15 +240,14 @@ class GaitChangeEnv(gym.Env):
     else:
       actual_speed = self.robot.base_velocity[0]
 
-    ground_impact_penalty = np.sum(self.robot.foot_forces)/np.sum(self.robot.foot_contacts_threshold) - \
-        np.sum(self.robot.pre_foot_forces)/np.sum(self.robot.pre_foot_contacts_threshold)
+    ground_impact_penalty = np.abs(np.sum(self.robot.foot_forces)/np.sum(self.robot.foot_contacts_threshold) -
+                                   np.sum(self.robot.pre_foot_forces)/np.sum(self.robot.pre_foot_contacts_threshold))
     # print(self.robot.foot_forces)
     # print(self.robot.pre_foot_forces) 
-    print("now: {} contact: {}".format(self.robot.foot_forces,self.robot.foot_contacts_threshold))
-    print(self.gait_generator.normalized_phase)
-    print("pre: {} contact: {}".format(self.robot.pre_foot_forces,self.robot.pre_foot_contacts_threshold))
-    print(ground_impact_penalty)
-    print("---------------------------------------------------")
+    # print("now: {} contact: {}".format(self.robot.foot_forces,self.robot.foot_contacts_threshold))
+    # print(self.gait_generator.normalized_phase)
+    # print("pre: {} contact: {}".format(self.robot.pre_foot_forces,self.robot.pre_foot_contacts_threshold))
+    # print("---------------------------------------------------")
     # print(ground_impact_penalty)
     # actual_roll = self.robot.base_orientation_rpy[0]
     # actual_pitch = self.robot.base_orientation_rpy[1]
@@ -256,7 +255,7 @@ class GaitChangeEnv(gym.Env):
     # orientation_penalty = (actual_roll**2 + actual_pitch**2)
 
     # action_norm_penalty = np.sum(np.maximum(np.abs(action[1:7]) - 0.5, 0))
-    alive_bonus = self.config.get('alive_bonus', 10.)
+    alive_bonus = self.config.get('alive_bonus', 300.)
 
     speed_penalty_type = self.config.get('speed_penalty_type',
                                          'symmetric_square')
@@ -274,15 +273,13 @@ class GaitChangeEnv(gym.Env):
       speed_penalty = speed_diff**2
 
     rew = alive_bonus - \
-        speed_penalty * self.config.get('speed_penalty_weight', 1) 
-        #- \
-        #ground_impact_penalty * self.config.get('ground_impact_penalty_weight', 1)
+        speed_penalty * self.config.get('speed_penalty_weight', 1) - \
+        ground_impact_penalty * self.config.get('ground_impact_penalty_weight', 0.8)
         # action_norm_penalty * self.config.get('action_penalty_weight', 0)
         # orientation_penalty * self.config.get('orientation_penalty_weight', 10) - \
     
     # print("rew: {}".format(rew))
     # print("-------------------------------------------------------------------------")
-
     return rew
 
   # def _reward_fn(self, action, impulse):
