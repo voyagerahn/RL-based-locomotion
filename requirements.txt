@@ -5,6 +5,6 @@ gym
 ml_collections
 pybullet
 ray
-tensorflow
+tensorflow==2.8.0
 tqdm
 stable-baselines3[extra]

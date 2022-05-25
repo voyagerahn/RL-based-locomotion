@@ -38,7 +38,6 @@ class RolloutServer(object):
     for _ in range(self.config.rollout_length):
       action = self.policy.act(state)
       state, rew , done, _ = self.env.step(action)
-      # state, rew, impulse , done, _ = self.env.step(action)
       sum_reward += rew
       # sum_impulse += impulse
       if done:

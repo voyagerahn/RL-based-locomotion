@@ -54,6 +54,10 @@ class Robot:
     self._foot_contact_history = self.foot_positions_in_base_frame.copy()
     self._foot_contact_history[:, 2] = -self.mpc_body_height
     self._last_timestamp = 0
+    self._pre_foot_forces = 0
+    # self._foot_contact = np.zeros(4)
+    self._pre_foot_contact = np.zeros(4)
+    self._pre_foot_contacts_binary = [0, 0, 0, 0]
     self.reset()
 
   def _load_robot_urdf(self, urdf_path: str) -> None:
@@ -193,6 +197,38 @@ class Robot:
     return contacts
 
   @property
+  def foot_contacts_binary(self):
+    all_contacts = self._pybullet_client.getContactPoints(bodyA=self.quadruped)
+    contacts = [0, 0, 0, 0]
+    for contact in all_contacts:
+      # Ignore self contacts
+      if contact[2] == self.quadruped:
+        continue
+      try:
+        toe_link_index = self._foot_link_ids.index(contact[3])
+        contacts[toe_link_index] = 1
+      except ValueError:
+        continue
+    return contacts
+
+  @property
+  def pre_foot_contacts_binary(self):
+    return self._pre_foot_contacts_binary
+
+  @property
+  def foot_contacts_threshold(self):
+    # for foot in range(4):
+    #   if self.foot_forces[foot] > 10.0 :
+    #     contact[foot] = 1
+    #   else
+    #     co      
+    return np.array(self.foot_forces) > 10.0
+
+  @property
+  def pre_foot_contacts_threshold(self):
+    return self._pre_foot_contact
+
+  @property
   def foot_forces(self):
     all_contacts = self._pybullet_client.getContactPoints(bodyA=self.quadruped)
     contact_force = [0.,0.,0.,0.]
@@ -206,6 +242,10 @@ class Robot:
       except ValueError:
         continue
     return contact_force
+  
+  @property
+  def pre_foot_forces(self):
+    return self._pre_foot_forces
 
   @property
   def base_position(self):

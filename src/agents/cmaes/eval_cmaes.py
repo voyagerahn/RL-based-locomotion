@@ -123,7 +123,7 @@ def main(_):
     for _ in range(int(env.config.high_level_dt / env.robot.control_timestep)):
       
       # start_time = time.time()
-      current_gait_state = env.gait_generator.normalized_phase[0]
+      # current_gait_state = env.gait_generator.normalized_phase[0]
 
       # obs, step_rew, step_impulse, done, _ = env.step(action, single_step=True)
       obs, step_rew, done, _ = env.step(action, single_step=True)
@@ -132,13 +132,13 @@ def main(_):
       # print("{:.5f}".format(actual_time))
       # print("----------------------------------------------------------------")
       # impulse += step_impulse
-      if ex_gait_state > current_gait_state:
-          print("{}  {}".format((sum_impulse / delta), (sum_impulse / sum_base_velocity)))
-          sum_impulse = 0
-          sum_base_velocity = 0
-          delta = 0
+      # if ex_gait_state > current_gait_state:
+      #     print("{}  {}".format((sum_impulse / delta), (sum_impulse / sum_base_velocity)))
+      #     sum_impulse = 0
+      #     sum_base_velocity = 0
+      #     delta = 0
       
-      sum_base_velocity += np.abs(env.robot.base_velocity[0])
+      # sum_base_velocity += np.abs(env.robot.base_velocity[0])
       # sum_impulse += step_impulse
       rew += step_rew
       states.append(
@@ -170,7 +170,7 @@ def main(_):
               ))
       delta +=1
       tick += 1
-      ex_gait_state = current_gait_state
+      # ex_gait_state = current_gait_state
 
       if done:
         break

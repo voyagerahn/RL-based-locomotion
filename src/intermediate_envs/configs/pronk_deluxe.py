@@ -31,10 +31,10 @@ def get_config():
 
   # Reward weights
   config.action_penalty_weight = 0.
-  config.alive_bonus = 5
+  config.alive_bonus = 10
   config.use_cot = True
   config.speed_penalty_weight = 1.
-  config.impulse_penalty_weight = 1 #0.37 #0.0025
+  config.ground_impact_penalty_weight = 1 #0.37 #0.0025
   config.orientation_penalty_weight = 10 
   config.speed_penalty_type = 'relative'
 

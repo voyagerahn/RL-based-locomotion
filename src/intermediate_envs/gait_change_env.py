@@ -176,7 +176,6 @@ class GaitChangeEnv(gym.Env):
     sum_reward = 0
     for _ in range(num_steps):
       self._time_since_reset = self._clock() - self._reset_time
-      # start_time = time.time()
       # Update individual controller components
       desired_speed = self.get_desired_speed(self._time_since_reset)
       # Perform "Position" control over yaw direction.
@@ -205,6 +204,9 @@ class GaitChangeEnv(gym.Env):
       # Get robot action and step the robot
       self.robot_action, self.qp_sol = self.get_robot_action()
       self.robot.step(self.robot_action)
+      
+      # impact = np.sum(self.robot.foot_forces)/np.sum(self.robot.foot_contacts_binary)
+      
       # impulse = self.robot.control_timestep * np.sum(self.robot.foot_forces)
       # actual_time = time.time() - start_time
       # print("{:.5f}".format(actual_time))
@@ -216,8 +218,10 @@ class GaitChangeEnv(gym.Env):
             cameraTargetPosition=self.robot.base_position,
         )
       reward = self._reward_fn(action)
-      # reward = self._reward_fn(action, impulse)
       sum_reward += reward
+
+      self.robot._pre_foot_forces = self.robot.foot_forces
+      self.robot._pre_foot_contact = self.robot.foot_contacts_threshold
       done = not self.is_safe
       # done = False
 
@@ -236,15 +240,23 @@ class GaitChangeEnv(gym.Env):
     else:
       actual_speed = self.robot.base_velocity[0]
 
-    # impulse_penalty = impulse
-    actual_roll = self.robot.base_orientation_rpy[0]
-    actual_pitch = self.robot.base_orientation_rpy[1]
+    ground_impact_penalty = np.sum(self.robot.foot_forces)/np.sum(self.robot.foot_contacts_threshold) - \
+        np.sum(self.robot.pre_foot_forces)/np.sum(self.robot.pre_foot_contacts_threshold)
+    # print(self.robot.foot_forces)
+    # print(self.robot.pre_foot_forces) 
+    print("now: {} contact: {}".format(self.robot.foot_forces,self.robot.foot_contacts_threshold))
+    print(self.gait_generator.normalized_phase)
+    print("pre: {} contact: {}".format(self.robot.pre_foot_forces,self.robot.pre_foot_contacts_threshold))
+    print(ground_impact_penalty)
+    print("---------------------------------------------------")
+    # print(ground_impact_penalty)
+    # actual_roll = self.robot.base_orientation_rpy[0]
+    # actual_pitch = self.robot.base_orientation_rpy[1]
 
-    orientation_penalty = (actual_roll**2 + actual_pitch**2)
+    # orientation_penalty = (actual_roll**2 + actual_pitch**2)
 
     # action_norm_penalty = np.sum(np.maximum(np.abs(action[1:7]) - 0.5, 0))
-
-    alive_bonus = self.config.get('alive_bonus', 5.)
+    alive_bonus = self.config.get('alive_bonus', 10.)
 
     speed_penalty_type = self.config.get('speed_penalty_type',
                                          'symmetric_square')
@@ -262,15 +274,17 @@ class GaitChangeEnv(gym.Env):
       speed_penalty = speed_diff**2
 
     rew = alive_bonus - \
-        orientation_penalty * self.config.get('orientation_penalty_weight', 10) - \
-        speed_penalty * self.config.get('speed_penalty_weight', 1)
-        # impulse_penalty * self.config.get('impulse_penalty_weight', 1)
+        speed_penalty * self.config.get('speed_penalty_weight', 1) 
+        #- \
+        #ground_impact_penalty * self.config.get('ground_impact_penalty_weight', 1)
         # action_norm_penalty * self.config.get('action_penalty_weight', 0)
+        # orientation_penalty * self.config.get('orientation_penalty_weight', 10) - \
     
     # print("rew: {}".format(rew))
     # print("-------------------------------------------------------------------------")
 
     return rew
+
   # def _reward_fn(self, action, impulse):
   #   # del action # unused
   #   desired_speed = self.get_desired_speed(self._time_since_reset)[0]

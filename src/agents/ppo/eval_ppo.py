@@ -81,7 +81,6 @@ def main(_):
     for _ in range(int(env.config.high_level_dt / env.robot.control_timestep)):
       
       start_time = time.time()
-      # obs, step_rew, step_impulse, done, _ = env.step(action, single_step=True)
       obs, step_rew, done, _ = env.step(action, single_step=True)
       
       rew += step_rew
@@ -129,7 +128,6 @@ def main(_):
     pickle.dump(states, open(os.path.join(log_path, 'states_0.pkl'), 'wb'))
     logging.info("Data logged to: {}".format(log_path))
   print(totalr)
-  # print("End Phase: {}".format(env.gait_generator.current_phase))
   episode_lengths.append(steps)
   returns.append(totalr)
 
