@@ -1,8 +1,5 @@
 '''
 Policy class for computing action from weights and observation vector.
-Horia Mania --- hmania@berkeley.edu
-Aurelia Guy
-Benjamin Recht
 '''
 from absl import logging
 import numpy as np

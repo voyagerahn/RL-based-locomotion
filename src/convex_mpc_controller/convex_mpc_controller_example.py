@@ -14,6 +14,8 @@ from src.convex_mpc_controller import locomotion_controller
 flags.DEFINE_string("logdir", None, "where to log trajectories.")
 flags.DEFINE_bool("use_real_robot", False,
                   "whether to use real robot or simulation")
+flags.DEFINE_bool("use_joystick", False,
+                  "whether to use joystick or pre-defined trajectory")
 flags.DEFINE_bool("show_gui", False, "whether to show GUI.")
 flags.DEFINE_float("max_time_secs", 1., "maximum time to run the robot.")
 
@@ -28,10 +30,14 @@ get_desired_speed = scipy.interpolate.interp1d(
     x, y, kind="linear", fill_value="extrapolate", axis=0)
 
 def _update_controller(controller, gamepad):
+  
   # Update speed
-  desired_speed = get_desired_speed(controller.time_since_reset)
-  lin_speed, rot_speed = desired_speed[:3], desired_speed[3:]
-  # lin_speed, rot_speed = gamepad.speed_command
+  if FLAGS.use_joystick:
+    lin_speed, rot_speed = gamepad.speed_command
+  else:
+    desired_speed = get_desired_speed(controller.time_since_reset)
+    lin_speed, rot_speed = desired_speed[:3], desired_speed[3:]
+
   controller.set_desired_speed(lin_speed, rot_speed)
 
   if (gamepad.estop_flagged) and (controller.mode !=

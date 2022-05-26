@@ -32,11 +32,6 @@ class Gamepad:
   2) Use the left joystick for forward/backward/left/right walking.
   3) Use the right joystick for rotation around the z-axis.
   """
-  # def __init__(self,
-  #              vel_scale_x: float = .5,
-  #              vel_scale_y: float = .5,
-  #              vel_scale_rot: float = 1.,
-  #              max_acc: float = .5):
 
   def __init__(self,
                vel_scale_x = .5,
@@ -145,14 +140,13 @@ class Gamepad:
     max_delta_speed = self._max_acc * delta_time
     self.vx = np.clip(self.vx_raw, self.vx - max_delta_speed,
                       self.vx + max_delta_speed)
-    self.vy = 0.0
-    self.wz = 0.0
-
-    # self.vy = np.clip(self.vy_raw, self.vy - max_delta_speed,
-    #                   self.vy + max_delta_speed)
-    # self.wz = np.clip(self.wz_raw, self.wz - max_delta_speed,
-    #                   self.wz + max_delta_speed)
-
+    # self.vy = 0.0
+    # self.wz = 0.0
+    self.vy = np.clip(self.vy_raw, self.vy - max_delta_speed,
+                      self.vy + max_delta_speed)
+    self.wz = np.clip(self.wz_raw, self.wz - max_delta_speed,
+                      self.wz + max_delta_speed)
+    
     self.last_timestamp = time.time()
     return (self.vx, self.vy, 0), self.wz
 

@@ -220,8 +220,8 @@ class GaitChangeEnv(gym.Env):
       reward = self._reward_fn(action)
       sum_reward += reward
 
-      self.robot._pre_foot_forces = self.robot.foot_forces
-      self.robot._pre_foot_contact = self.robot.foot_contacts_threshold
+      # self.robot._pre_foot_forces = self.robot.foot_forces
+      # self.robot._pre_foot_contact = self.robot.foot_contacts_threshold      
       done = not self.is_safe
       # done = False
 
@@ -240,14 +240,11 @@ class GaitChangeEnv(gym.Env):
     else:
       actual_speed = self.robot.base_velocity[0]
 
-    ground_impact_penalty = np.abs(np.sum(self.robot.foot_forces)/np.sum(self.robot.foot_contacts_threshold) -
-                                   np.sum(self.robot.pre_foot_forces)/np.sum(self.robot.pre_foot_contacts_threshold))
-    # print(self.robot.foot_forces)
-    # print(self.robot.pre_foot_forces) 
-    # print("now: {} contact: {}".format(self.robot.foot_forces,self.robot.foot_contacts_threshold))
-    # print(self.gait_generator.normalized_phase)
-    # print("pre: {} contact: {}".format(self.robot.pre_foot_forces,self.robot.pre_foot_contacts_threshold))
-    # print("---------------------------------------------------")
+    if np.sum(self.robot.foot_contacts_threshold) != 0 and np.sum(self.robot.pre_foot_contacts_threshold) !=0:
+      ground_impact_penalty = np.abs(np.sum(self.robot.foot_forces)/np.sum(self.robot.foot_contacts_threshold) -
+                                     np.sum(self.robot.pre_foot_forces)/np.sum(self.robot.pre_foot_contacts_threshold))
+    else:
+      ground_impact_penalty = 0
     # print(ground_impact_penalty)
     # actual_roll = self.robot.base_orientation_rpy[0]
     # actual_pitch = self.robot.base_orientation_rpy[1]

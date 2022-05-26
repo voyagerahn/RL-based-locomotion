@@ -251,6 +251,16 @@ class Robot:
     return self._pre_foot_forces
 
   @property
+  def foot_forces_diff(self):
+    if np.sum(self.foot_contacts_threshold) != 0 and np.sum(self.pre_foot_contacts_threshold) != 0:
+      diff = np.abs(np.sum(self.foot_forces)/np.sum(self.foot_contacts_threshold) -
+                    np.sum(self.pre_foot_forces)/np.sum(self.pre_foot_contacts_threshold))
+    else:
+      diff = 0
+    return diff
+
+
+  @property
   def base_position(self):
     return np.array(
         self._pybullet_client.getBasePositionAndOrientation(self.quadruped)[0])
