@@ -29,7 +29,12 @@ ray start --head --port=6379 --num-cpus=[NUM_CPUS] --redis-password=1234
 
 and start training by running:
 ```bash
-python -m src.agents.cmaes.train_cmaes --config src/agents/cmaes/configs/gait_change_deluxe.py --experiment_name="exp"
+python -m src.agents.cmaes.train_cmaes --config src/agents/cmaes/configs/gait_change_deluxe.py --experiment_name="CMAES"
+```
+if you want to train policy using another optimization algorithm(eg, PPO, A2C...), 
+
+```bash
+python -m src.agents.ppo.train_cmaes --config src/agents/ppo/configs/gait_change_deluxe.py --experiment_name="PPO"
 ```
 
 You can then see the checkpoints and tensorboard logs in the `logs` folder and evaluate the trained policy using `eval_cmaes` as described above.

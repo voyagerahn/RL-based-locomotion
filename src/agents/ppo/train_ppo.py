@@ -12,7 +12,7 @@ import ray
 import tensorflow as tf
 import time
 from src.agents.ppo import logz
-from src.agents.ppo import rollout_server
+# from src.agents.ppo import rollout_server
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.logger import configure
@@ -45,13 +45,13 @@ def main(_):
 
   env.reset()
 
-  model = PPO("MlpPolicy", env, n_steps=800 ,policy_kwargs=policy_kwargs, verbose=1)
-  
+  model = PPO("MlpPolicy", env, n_steps=300 ,policy_kwargs=policy_kwargs, verbose=1)
+  #800 / 100000
   # start_time = time.time()
   # sum_reward = 0
   logger = configure(logdir,["stdout","log","tensorboard"])
   model.set_logger(logger)
-  model.learn(total_timesteps=100000)
+  model.learn(total_timesteps=300)
 
   model_dir = os.path.join(logdir,'ppo_policy')
   model.save(model_dir)
