@@ -276,6 +276,7 @@ class LocomotionController(object):
         foot_velocity=self._robot.foot_velocity,
         foot_forces=self._robot.foot_forces,
         impact_diff=self._robot.foot_forces_diff,
+        impact_avg=self._robot.foot_forces_avg,
         tick=self._tick
       )
     self._logs.append(frame)
@@ -321,6 +322,11 @@ class LocomotionController(object):
         time.sleep(0.1)
       elif self._mode == ControllerMode.STAND:
         action = self._get_stand_action()
+        # print(self._robot._raw_state.footForce)
+        # print(self._robot._contact_force_threshold)        
+        # print(self._robot.foot_contacts)
+        # print(self._robot.foot_contacts_binary)
+        # print("------------------------------")
         self._robot.step(action)
         time.sleep(0.001)
       elif self._mode == ControllerMode.WALK:
@@ -328,7 +334,7 @@ class LocomotionController(object):
         self._robot.step(action)
         self._update_logging(action, qp_sol)
         self._robot._pre_foot_forces = self._robot.foot_forces
-        self._robot._pre_foot_contact = self._robot.foot_contacts_threshold
+        self._robot._pre_foot_contacts_binary = self._robot.foot_contacts_binary
         self._tick += 1
         
       else:
@@ -397,58 +403,3 @@ class LocomotionController(object):
 
   def set_foot_landing_clearance(self, foot_landing_clearance):
     raise NotImplementedError()
-
-
-# def run(self):
-#     logging.info("Low level thread started...")
-#     while True:
-      
-#       self.current_gait_state = self._gait_generator.normalized_phase[0]      
-      
-#       self._handle_mode_switch()
-#       self._handle_gait_switch()
-#       self.update()
-#       if self._mode == ControllerMode.DOWN:
-#         time.sleep(0.1)
-#       elif self._mode == ControllerMode.STAND:
-#         action = self._get_stand_action()
-#         self._robot.step(action)
-#         time.sleep(0.001)
-#       elif self._mode == ControllerMode.WALK:
-#         action, qp_sol = self.get_action()
-#         self._robot.step(action)
-#         # print(self._robot.foot_forces)
-#         # foot_contact = self._robot.foot_contacts
-#         # impulse = 0.002 * np.sum(self._robot.foot_forces)
-#         # if self.ex_gait_state >= self.current_gait_state:
-#         #   # print("{}  {}".format((self.sum_impulse / self.delta), (self.sum_impulse / self.sum_base_velocity)))
-#         #   # print("tick : {}, avg_impulse : {} ".format(self._tick, self.sum_impulse / self.delta))
-#         #   self.sum_impulse = 0
-#         #   self.sum_base_velocity = 0
-#         #   self.delta = 0
-
-#         # self.sum_base_velocity += np.abs(self._robot.base_velocity[0])
-#         # self.sum_impulse += impulse
-
-#         # actual_time = time.time() - start_time
-#         # print("{:.5f}".format(actual_time))
-#         self._robot._pre_foot_forces = self._robot.foot_forces
-#         self._robot._pre_foot_contact = self._robot.foot_contacts_threshold
-#         self._update_logging(action, qp_sol)
-        
-#         # self.delta += 1
-#         self._tick += 1
-        
-#       else:
-#         logging.info("Running loop terminated, exiting...")
-#         break
-
-#       # Camera setup:
-#       if self._show_gui:
-#         self.pybullet_client.resetDebugVisualizerCamera(
-#             cameraDistance=1.0,
-#             cameraYaw=30 + self._robot.base_orientation_rpy[2] / np.pi * 180,
-#             cameraPitch=-30,
-#             cameraTargetPosition=self._robot.base_position,
-#         )
-  

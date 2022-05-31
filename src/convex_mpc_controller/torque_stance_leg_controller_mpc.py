@@ -38,7 +38,7 @@ _MPC_WEIGHTS = (1., 1., 0, 0, 0, 10, 0., 0., .1, .1, .1, .0, 0)
 
 PLANNING_HORIZON_STEPS = 10
 PLANNING_TIMESTEP = 0.025
-
+TORQUE_LIMIT = 15
 
 class TorqueStanceLegController:
   """A torque based stance leg controller framework.
@@ -222,6 +222,14 @@ class TorqueStanceLegController:
       motor_torques = self._robot.map_contact_force_to_joint_torques(
           leg_id, force)
       for joint_id, torque in motor_torques.items():
+        if torque > TORQUE_LIMIT:
+          print("Safety Checker : Joint:{} Torque is higher than Torque Limit Torque:{} -> {}".format(
+                joint_id, torque, TORQUE_LIMIT))
+          torque = TORQUE_LIMIT
+        elif torque < -TORQUE_LIMIT:
+          print("Safety Checker : Joint:{} Torque is lower than Torque Limit Torque:{} -> {}".format(
+                joint_id, torque, -TORQUE_LIMIT))
+          torque = -TORQUE_LIMIT
         action[joint_id] = MotorCommand(desired_position=0,
                                         kp=0,
                                         desired_velocity=0,

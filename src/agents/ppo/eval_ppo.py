@@ -30,8 +30,8 @@ FLAGS = flags.FLAGS
 def main(_):
 
   # Load config and policy
-  config_path = os.path.join(os.path.dirname(FLAGS.logdir),'good', 'config.yaml')
-  model_path = os.path.join(FLAGS.logdir,'ppo_policy')
+  config_path = os.path.join(os.path.dirname(FLAGS.logdir), 'config.yaml')
+  model_path = os.path.join(FLAGS.logdir,'ppo_policy_91000_steps.zip')
   log_path = FLAGS.logdir
   
   if FLAGS.save_video or FLAGS.save_data:

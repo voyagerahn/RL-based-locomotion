@@ -55,7 +55,7 @@ class Robot:
     self._foot_contact_history[:, 2] = -self.mpc_body_height
     self._last_timestamp = 0
     self._pre_foot_forces = 0
-    # self._foot_contact = np.zeros(4)
+    self._foot_contact = np.zeros(4)
     self._pre_foot_contact = np.zeros(4)
     self._pre_foot_contacts_binary = [0, 0, 0, 0]
     self.reset()
@@ -259,6 +259,15 @@ class Robot:
       diff = 0
     return diff
 
+  @property
+  def foot_forces_avg(self):
+    if np.sum(self.foot_contacts_threshold) != 0 and np.sum(self.pre_foot_contacts_threshold) != 0:
+      avg = np.abs(np.sum(self.foot_forces)/np.sum(self.foot_contacts_threshold))
+    else:
+      avg = 0
+    return avg
+
+  
 
   @property
   def base_position(self):

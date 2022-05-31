@@ -100,12 +100,6 @@ def main(_):
   done = False
   totalr = 0.
   steps = 0
-
-  current_gait_state = 0.
-  ex_gait_state = 0.
-  sum_impulse = 0
-  delta = 0
-  sum_base_velocity = 0.
   
   p = env.pybullet_client
   if FLAGS.save_video:
@@ -119,7 +113,6 @@ def main(_):
     observations.append(obs)
     actions.append(action)
     rew = 0
-    impulse = 0
     for _ in range(int(env.config.high_level_dt / env.robot.control_timestep)):      
       
       obs, step_rew, done, _ = env.step(action, single_step=True)
@@ -149,11 +142,14 @@ def main(_):
               foot_velocity=env.robot.foot_velocity,
               foot_forces=env.robot.foot_forces,
               impact_diff=env.robot.foot_forces_diff,
+              impact_avg=env.robot.foot_forces_avg,
+              foot_contacts_threshold=env.robot.foot_contacts_binary,
+              pre_foot_contacts_threshold=env.robot.pre_foot_contacts_binary,
               tick=tick
               ))
       env.robot._pre_foot_forces = env.robot.foot_forces
-      env.robot._pre_foot_contact = env.robot.foot_contacts_threshold 
-      delta +=1
+      env.robot._pre_foot_contact = env.robot.foot_contacts_threshold
+      env.robot._pre_foot_contacts_binary = env.robot.foot_contacts_binary
       tick += 1
       
       if done:

@@ -21,7 +21,8 @@ from src.convex_mpc_controller import offset_gait_generator
 
 def get_gamepad_desired_speed_fn(gamepad):
   def get_desired_speed(time_since_reset):
-    lin_speed, rot_speed, _ = gamepad.get_command(time_since_reset)
+    # lin_speed, rot_speed, _ = gamepad.get_command(time_since_reset)
+    lin_speed, rot_speed = gamepad.speed_command
 
     return np.array([lin_speed[0], lin_speed[1], 0, rot_speed])
 
@@ -68,7 +69,10 @@ class GaitChangeEnv(gym.Env):
 
     self.pybullet_client = p
     if use_real_robot or use_gamepad_speed_command:
-      self.gamepad = gamepad_reader.Gamepad(vel_scale_x=2.5, vel_scale_y=0.3)
+      # self.gamepad = gamepad_reader.Gamepad(vel_scale_x=2.5, vel_scale_y=0.3)
+      self.gamepad = gamepad_reader.Gamepad(
+          vel_scale_x=1, vel_scale_y=1, vel_scale_rot=1, max_acc=0.3)
+
     if use_gamepad_speed_command:
       self.get_desired_speed = get_gamepad_desired_speed_fn(self.gamepad)
 

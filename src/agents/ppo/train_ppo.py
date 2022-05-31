@@ -17,6 +17,8 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.callbacks import CheckpointCallback
+
 
 config_flags.DEFINE_config_file(
     'config', 'locomotion/agents/ppo/configs/gait_change_deluxe.py',
@@ -44,16 +46,18 @@ def main(_):
   logz.save_params(config)
 
   env.reset()
+  checkpoint_callback = CheckpointCallback(
+      save_freq=500, save_path=logdir, name_prefix='ppo_policy')
 
-  model = PPO("MlpPolicy", env, n_steps=300 ,policy_kwargs=policy_kwargs, verbose=1)
+  model = PPO("MlpPolicy", env, n_steps=500 ,policy_kwargs=policy_kwargs, verbose=1)
   #800 / 100000
   # start_time = time.time()
   # sum_reward = 0
   logger = configure(logdir,["stdout","log","tensorboard"])
   model.set_logger(logger)
-  model.learn(total_timesteps=300)
+  model.learn(total_timesteps=200000, callback=checkpoint_callback)
 
-  model_dir = os.path.join(logdir,'ppo_policy')
+  model_dir = os.path.join(logdir,'ppo_policy_final')
   model.save(model_dir)
 
 if __name__ == "__main__":

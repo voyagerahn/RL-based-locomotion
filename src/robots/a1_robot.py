@@ -40,10 +40,14 @@ class A1Robot(a1.A1):
   ) -> None:
     self._raw_state = robot_interface.LowState()
     self._contact_force_threshold = np.zeros(4)
+
     # Send an initial zero command in order to receive state information.
     self._robot_interface = robot_interface.RobotInterface(0xff)
     self._state_estimator = a1_robot_state_estimator.A1RobotStateEstimator(
         self)
+    self._pre_foot_forces = 0
+    self._pre_foot_contact = np.zeros(4)
+    self._pre_foot_contacts_binary = [0, 0, 0, 0]
     self._last_reset_time = time.time()
 
     super(A1Robot, self).__init__(pybullet_client, sim_conf, urdf_path,
@@ -145,12 +149,47 @@ class A1Robot(a1.A1):
   def foot_forces(self):
     return np.array(self._raw_state.footForce)
 
+  @property
+  def pre_foot_forces(self):
+    return self._pre_foot_forces
+
   def update_foot_contact_force_threshold(self, leg_id, threshold):
-    self._contact_force_threshold[leg_id] = threshold
+    self._contact_force_threshold[leg_id] = 10
 
   @property
   def foot_contacts(self):
     return np.array(self._raw_state.footForce) > self._contact_force_threshold
+  
+  @property
+  def foot_contacts_binary(self):
+    """Return Binary"""
+    all_contacts = self.foot_contacts
+    contacts = [0, 0, 0, 0]
+    for foot in range(4):
+      if all_contacts[foot] == True:
+        contacts[foot] = 1
+    return contacts  
+  
+  @property
+  def pre_foot_contacts_binary(self):
+    return self._pre_foot_contacts_binary
+
+  @property
+  def foot_forces_diff(self):
+    if np.sum(self.foot_contacts_binary) != 0 and np.sum(self.pre_foot_contacts_binary) != 0:
+      diff = np.abs(np.sum(self.foot_forces)/np.sum(self.foot_contacts_binary) -
+                    np.sum(self.pre_foot_forces)/np.sum(self.pre_foot_contacts_binary))
+    else:
+      diff = 0
+    return diff
+
+  @property
+  def foot_forces_avg(self):
+    if np.sum(self.foot_contacts_binary) != 0 and np.sum(self.pre_foot_contacts_binary) != 0:
+      avg = np.abs(np.sum(self.foot_forces)/np.sum(self.foot_contacts_binary))
+    else:
+      avg = 0
+    return avg
 
   @property
   def base_position(self):
@@ -202,12 +241,12 @@ class A1Robot(a1.A1):
     return np.array([self.compute_foot_velocity(0)[2], self.compute_foot_velocity(
         1)[2], self.compute_foot_velocity(2)[2], self.compute_foot_velocity(3)[2]])
   
-  @property
-  def impulse(self):
-    foot_vel = np.array([self.compute_foot_velocity(0)[2], self.compute_foot_velocity(
-        1)[2], self.compute_foot_velocity(2)[2], self.compute_foot_velocity(3)[2]])
-    foot_vel =  np.sum(np.abs(foot_vel))
-    return foot_vel
+  # @property
+  # def impulse(self):
+  #   foot_vel = np.array([self.compute_foot_velocity(0)[2], self.compute_foot_velocity(
+  #       1)[2], self.compute_foot_velocity(2)[2], self.compute_foot_velocity(3)[2]])
+  #   foot_vel =  np.sum(np.abs(foot_vel))
+  #   return foot_vel
 
   @property
   def time_since_reset(self):
