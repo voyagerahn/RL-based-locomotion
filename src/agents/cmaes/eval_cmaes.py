@@ -126,8 +126,10 @@ def main(_):
               motor_angles=env.robot.motor_angles,
               base_vel=env.robot.base_velocity,
               base_vel_x=env.robot.base_velocity[0],
+              desired_vel_x=env._stance_controller.desired_speed,
               base_vels_body_frame=env.state_estimator.com_velocity_body_frame,
               base_rpy_rate=env.robot.base_rpy_rate,
+              foot_height=env._swing_controller.foot_height,
               motor_vels=env.robot.motor_velocities,
               motor_torques=env.robot.motor_torques,
               contacts=env.robot.foot_contacts,
@@ -138,7 +140,7 @@ def main(_):
               env_action=action,
               gait_generator_phase=env.gait_generator.current_phase.copy(),
               gait_generator_state=env.gait_generator.leg_state,
-              gait_normalized_phase=env.gait_generator.normalized_phase[0],
+              gait_normalized_phase=env.gait_generator.normalized_phase,
               foot_velocity=env.robot.foot_velocity,
               foot_forces=env.robot.foot_forces,
               impact_diff=env.robot.foot_forces_diff,
@@ -181,82 +183,3 @@ def main(_):
 
 if __name__ == '__main__':
   app.run(main)
-
-
-
-
-"""
-
-for t in range(config.rollout_length):
-    start_time = time.time()
-    action = policy.act(obs)
-
-    observations.append(obs)
-    actions.append(action)
-    rew = 0
-    impulse = 0
-    for _ in range(int(env.config.high_level_dt / env.robot.control_timestep)):
-      
-      # start_time = time.time()
-      # current_gait_state = env.gait_generator.normalized_phase[0]
-
-      # obs, step_rew, step_impulse, done, _ = env.step(action, single_step=True)
-      obs, step_rew, done, _ = env.step(action, single_step=True)
-      
-      # actual_time = time.time() - start_time
-      # print("{:.5f}".format(actual_time))
-      # print("----------------------------------------------------------------")
-      # impulse += step_impulse
-      # if ex_gait_state > current_gait_state:
-      #     print("{}  {}".format((sum_impulse / delta), (sum_impulse / sum_base_velocity)))
-      #     sum_impulse = 0
-      #     sum_base_velocity = 0
-      #     delta = 0
-      
-      # sum_base_velocity += np.abs(env.robot.base_velocity[0])
-      # sum_impulse += step_impulse
-      rew += step_rew
-      states.append(
-          dict(
-              desired_speed=env.get_desired_speed(
-                  env.robot.time_since_reset),
-              timestamp=env.robot.time_since_reset,
-              base_rpy=env.robot.base_orientation_rpy,
-              motor_angles=env.robot.motor_angles,
-              base_vel=env.robot.base_velocity,
-              base_vel_x=env.robot.base_velocity[0],
-              base_vels_body_frame=env.state_estimator.com_velocity_body_frame,
-              base_rpy_rate=env.robot.base_rpy_rate,
-              motor_vels=env.robot.motor_velocities,
-              motor_torques=env.robot.motor_torques,
-              contacts=env.robot.foot_contacts,
-              desired_grf=env.qp_sol,
-              reward=step_rew,
-              state=obs,
-              robot_action=env.robot_action,
-              env_action=action,
-              gait_generator_phase=env.gait_generator.current_phase.copy(),
-              gait_generator_state=env.gait_generator.leg_state,
-              gait_normalized_phase=env.gait_generator.normalized_phase[0],
-              foot_velocity=env.robot.foot_velocity,
-              tick=tick,
-              # impulse=step_impulse,
-              foot_forces=env.robot.foot_forces
-              ))
-      delta +=1
-      tick += 1
-      # ex_gait_state = current_gait_state
-
-      if done:
-        break
-    totalr += rew
-    # print("Step: {}, Reward: {}".format(t,rew))
-    # print("impulse: {}".format(impulse))    
-    steps += 1
-    if done:
-      break
-
-    duration = time.time() - start_time
-    if duration < env.robot.control_timestep and not FLAGS.use_real_robot:
-      time.sleep(env.robot.control_timestep - duration)
-"""

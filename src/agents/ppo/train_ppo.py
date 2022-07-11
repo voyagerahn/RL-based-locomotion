@@ -47,15 +47,17 @@ def main(_):
 
   env.reset()
   checkpoint_callback = CheckpointCallback(
-      save_freq=500, save_path=logdir, name_prefix='ppo_policy')
+      save_freq=100, save_path=logdir, name_prefix='ppo_policy')
 
-  model = PPO("MlpPolicy", env, n_steps=500 ,policy_kwargs=policy_kwargs, verbose=1)
+  model = PPO("MlpPolicy", env, n_steps=100 ,policy_kwargs=policy_kwargs, verbose=1)
   #800 / 100000
   # start_time = time.time()
   # sum_reward = 0
   logger = configure(logdir,["stdout","log","tensorboard"])
   model.set_logger(logger)
-  model.learn(total_timesteps=200000, callback=checkpoint_callback)
+  model.learn(total_timesteps=1000, callback=checkpoint_callback)
+
+  # model.learn(total_timesteps=200000, callback=checkpoint_callback)
 
   model_dir = os.path.join(logdir,'ppo_policy_final')
   model.save(model_dir)

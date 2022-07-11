@@ -38,7 +38,6 @@ class OffsetGaitGenerator(gait_generator.GaitGenerator):
     current_robot_time = self.robot.time_since_reset
     frame_duration = self.robot.time_since_reset - self.prev_frame_robot_time
     self.prev_frame_robot_time = current_robot_time
-
     # Propagate phase for front-right leg
     self.current_phase[0] += 2 * np.pi * frame_duration * self.gait_params[0]
     # Offset for remaining legs

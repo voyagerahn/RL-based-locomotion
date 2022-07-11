@@ -13,8 +13,8 @@ def get_config():
   config.qp_acc_weight = np.array([1., 1., 1., 10., 10, 1.])
 
   config.speed_profile = (np.array([0, 15, 20, 21, 22]),
-                          np.array([[0., 0., 0., 0.], [2.5, 0., 0., 0.],
-                                    [2.5, 0., 0., 0.], [0., 0., 0., 0.],
+                          np.array([[0., 0., 0., 0.], [2.0, 0., 0., 0.],
+                                    [2.0, 0., 0., 0.], [0., 0., 0., 0.],
                                     [0., 0., 0., 0.]]))
 
   config.use_mpc_stance_controller = True
@@ -28,6 +28,9 @@ def get_config():
   config.use_full_observation = False
   config.action_high = np.array([4, 1, 1, 1, 1, 1, 1, 0.99])
   config.action_low = np.array([0.001, -1, -1, -1, -1, -1, -1, 0.01])
+  # config.action_high = np.array([4, 1, 1, 1, 1, 1, 1, 0.99, 0.99])
+  # config.action_low = np.array([0.001, -1, -1, -1, -1, -1, -1, 0.01, 0.01])
+
 
   # Reward weights
   config.action_penalty_weight = 0.

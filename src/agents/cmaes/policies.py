@@ -128,3 +128,72 @@ class NNPolicy(Policy):
     mu, std = self.observation_filter.get_stats()
     aux = np.asarray([self.weights, mu, std])
     return aux
+
+
+# class MLPPolicy(Policy):
+#   def __init__(self, config, policy_params, observation_space, action_space):
+#     Policy.__init__(self, config, policy_params, observation_space,
+#                     action_space)
+#     self.config = config
+#     self.original_weights = []
+
+#     curr = self.ob_dim
+    
+#     #------------- first hidden layer---------------------#
+#     self.original_weights.append(
+#           np.random.normal(size=(self.config.first_hidden_layer_size, curr)) * 0.01)
+#     self.original_weights.append(np.zeros(self.config.first_hidden_layer_size))
+#     curr = self.config.first_hidden_layer_size
+#     #------------------------------------------------------#
+#     #------------- second hidden layer---------------------#
+#     self.original_weights.append(
+#           np.random.normal(size=(self.config.second_hidden_layer_size, curr)) * 0.01)
+#     self.original_weights.append(np.zeros(self.config.second_hidden_layer_size))
+#     curr = self.config.second_hidden_layer_size
+#     #------------------------------------------------------#
+#     self.original_weights.append(np.zeros((self.ac_dim, curr)))
+#     self.original_weights.append(np.zeros(self.ac_dim))
+
+#     self.weights = np.concatenate([w.flatten() for w in self.original_weights])
+
+#   def _split_weights(self, weights):
+#     weights = weights.copy()
+#     splitted_weights = []
+#     for w in self.original_weights:
+#       length = np.prod(w.shape)
+#       splitted_weights.append(weights[:length].reshape(w.shape))
+#       weights = weights[length:]
+#     return splitted_weights
+
+#   def act(self, ob, verbose=False):
+#     ob = self.observation_filter(ob, update=self.update_filter)
+#     splitted_weights = self._split_weights(self.weights)
+    
+#     curr = ob.copy()
+
+#     for _ in range(self.config.get('mlp_num_hidden_layers', 2)):
+#       # Hidden layers of NN
+#       weight, bias = splitted_weights[0], splitted_weights[1]
+#       splitted_weights = splitted_weights[2:]
+#       curr = relu(weight.dot(curr) + bias)
+#     # Output layers of NN
+#     weight, bias = splitted_weights[0], splitted_weights[1]
+
+#     action = weight.dot(curr) + bias
+#     if self.action_space:
+#       if self.config.action_limit_method == 'tanh':
+#         action = np.tanh(action)
+
+#       elif self.config.action_limit_method == 'clip':
+#         action = np.clip(action, -1, 1)
+#       else:
+#         raise ValueError("Unknown action limiting method.")
+#       action_mid = (self.action_space.low + self.action_space.high) / 2
+#       action_range = (self.action_space.high - self.action_space.low) / 2
+#       action = action * action_range + action_mid
+#     return action
+
+#   def get_weights_plus_stats(self):
+#     mu, std = self.observation_filter.get_stats()
+#     aux = np.asarray([self.weights, mu, std])
+#     return aux

@@ -231,15 +231,15 @@ extensions.append(mpc_osqp_ext)
 print(find_packages('.'))
 
 setup(
-    name='fast_and_efficient',
+    name='RL-based_locomotion',
     version='1.0.0',
     description=
     'Convex MPC controller with python bindings for MPC using the osqp solver',
     long_description=
     'Convex MPC controller with python bindings for MPC using the PyBullet and the OSQP solver',
     url='https://github.com/yxyang/fast_and_efficient',
-    author='Yuxiang Yang, Tingnan Zhang, Erwin Coumans, Jie Tan, Byron Boots, and Rosario Scalise',
-    author_email='yuxiangy@cs.washington.edu',
+    author='JaeSung Ahn',
+    author_email='voyagerahn@kist.re.kr',
     license='mixed',
     platforms='any',
     keywords=['robotics', 'control', 'physics simulation'],

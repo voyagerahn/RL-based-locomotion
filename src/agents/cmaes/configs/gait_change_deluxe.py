@@ -22,10 +22,12 @@ def get_config():
   config.action_limit_method = 'tanh'  # 'tanh'
   config.num_hidden_layers = 1
   config.hidden_layer_size = 256
+  # config.num_hidden_layers = 2
+  # config.hidden_layer_size = 128
 
   # CMAES hyperparams
   config.logdir = 'logs'
-  config.num_iters = 1000 #1000 #0
+  config.num_iters = 500 #1000 #0
   config.rollout_length = 300
   config.eval_every = 10
   return config

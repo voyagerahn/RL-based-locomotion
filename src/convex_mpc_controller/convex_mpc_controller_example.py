@@ -37,7 +37,6 @@ def _update_controller(controller, gamepad):
   else:
     desired_speed = get_desired_speed(controller.time_since_reset)
     lin_speed, rot_speed = desired_speed[:3], desired_speed[3:]
-
   controller.set_desired_speed(lin_speed, rot_speed)
 
   if (gamepad.estop_flagged) and (controller.mode !=

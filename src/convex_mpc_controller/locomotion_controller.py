@@ -261,6 +261,7 @@ class LocomotionController(object):
         motor_angles=self._robot.motor_angles,
         base_vel=self._robot.base_velocity,
         base_vel_x=self._robot.base_velocity[0],
+        desired_vel_x=self._stance_controller.desired_speed,
         base_vels_body_frame=self._state_estimator.com_velocity_body_frame,
         base_rpy_rate=self._robot.base_rpy_rate,
         motor_vels=self._robot.motor_velocities,
@@ -270,7 +271,7 @@ class LocomotionController(object):
         robot_action=action,
         gait_generator_phase=self._gait_generator.current_phase.copy(),
         gait_generator_state=self._gait_generator.leg_state,
-        gait_normalized_phase=self._gait_generator.normalized_phase[0],
+        gait_normalized_phase=self._gait_generator.normalized_phase,
         ground_orientation=self._state_estimator.
         ground_orientation_world_frame,
         foot_velocity=self._robot.foot_velocity,
@@ -322,12 +323,9 @@ class LocomotionController(object):
         time.sleep(0.1)
       elif self._mode == ControllerMode.STAND:
         action = self._get_stand_action()
-        # print(self._robot._raw_state.footForce)
-        # print(self._robot._contact_force_threshold)        
-        # print(self._robot.foot_contacts)
         # print(self._robot.foot_contacts_binary)
         # print("------------------------------")
-        self._robot.step(action)
+        self._robot.step(action)  
         time.sleep(0.001)
       elif self._mode == ControllerMode.WALK:
         action, qp_sol = self.get_action()
@@ -335,6 +333,9 @@ class LocomotionController(object):
         self._update_logging(action, qp_sol)
         self._robot._pre_foot_forces = self._robot.foot_forces
         self._robot._pre_foot_contacts_binary = self._robot.foot_contacts_binary
+        # print(self._robot.base_velocity)
+        # print("------------------------------")
+      
         self._tick += 1
         
       else:
@@ -349,6 +350,7 @@ class LocomotionController(object):
             cameraPitch=-30,
             cameraTargetPosition=self._robot.base_position,
         )
+        
   
   def set_controller_mode(self, mode):
     self._desired_mode = mode

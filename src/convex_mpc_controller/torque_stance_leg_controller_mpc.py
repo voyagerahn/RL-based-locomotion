@@ -223,12 +223,12 @@ class TorqueStanceLegController:
           leg_id, force)
       for joint_id, torque in motor_torques.items():
         if torque > TORQUE_LIMIT:
-          print("Safety Checker : Joint:{} Torque is higher than Torque Limit Torque:{} -> {}".format(
-                joint_id, torque, TORQUE_LIMIT))
+          # print("Safety Checker : Joint:{} Torque is higher than Torque Limit Torque:{} -> {}".format(
+          #       joint_id, torque, TORQUE_LIMIT))
           torque = TORQUE_LIMIT
         elif torque < -TORQUE_LIMIT:
-          print("Safety Checker : Joint:{} Torque is lower than Torque Limit Torque:{} -> {}".format(
-                joint_id, torque, -TORQUE_LIMIT))
+          # print("Safety Checker : Joint:{} Torque is lower than Torque Limit Torque:{} -> {}".format(
+          #       joint_id, torque, -TORQUE_LIMIT))
           torque = -TORQUE_LIMIT
         action[joint_id] = MotorCommand(desired_position=0,
                                         kp=0,

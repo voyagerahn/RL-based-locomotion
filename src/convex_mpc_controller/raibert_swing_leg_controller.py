@@ -250,7 +250,6 @@ class RaibertSwingLegController:
           self._gait_generator.normalized_phase[leg_id],
           self._phase_switch_foot_local_position[leg_id], foot_target_position,
           self._foot_height)
-
       joint_ids, joint_angles = (
           self._robot.get_motor_angles_from_foot_position(
               leg_id, foot_position))
