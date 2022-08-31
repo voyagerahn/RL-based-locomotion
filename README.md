@@ -1,4 +1,4 @@
-# KIST Minimum-Impulse Locomotion via Learned Gait Transitions
+# KIST Impact-Reduced gait for quadruped robot via Evolution Strategy
 
 This repository also contains the entire suite of software interface for the A1 quadruped robot, including:
 
